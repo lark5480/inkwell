@@ -373,7 +373,7 @@ const categoryIcons = [
 .hero-section {
   position: relative;
   padding: var(--space-16) 0 var(--space-10);
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg) 100%);
+  background: var(--bg-secondary);
   overflow: hidden;
 }
 
