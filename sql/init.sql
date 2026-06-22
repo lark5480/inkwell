@@ -480,7 +480,7 @@ INSERT IGNORE INTO `article_tags` (`article_id`, `tag_id`) VALUES
 -- Settings
 INSERT IGNORE INTO `settings` (`setting_key`, `setting_value`, `description`) VALUES
 ('site_title',       'Inkwell',                        '站点标题'),
-('site_description', 'A personal blog about code, life, and books', '站点描述'),
+('site_description', 'Inkwell — 一个开发者社区与技术分享平台',    '站点描述'),
 ('site_keywords',    'blog,tech,编程,Java,Spring Boot,Vue.js,读书,个人博客', '站点关键词'),
 ('site_icon',        '/favicon.ico',                   '站点图标'),
 ('about_content',    '## 关于我\n\n一名全栈开发者，热爱技术、阅读与生活。\n\n这个博客主要分享：\n\n- 技术教程与踩坑记录\n- 读书笔记与感悟\n- 生活随笔与效率工具\n\n欢迎通过评论与我交流。', '关于页内容（Markdown）'),
