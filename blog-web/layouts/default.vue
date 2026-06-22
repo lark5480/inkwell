@@ -16,7 +16,7 @@
               </linearGradient>
             </defs>
           </svg>
-          <span class="logo-text" style="color:inherit">{{ siteName }}</span>
+          <span class="logo-text gradient-text">{{ siteName }}</span>
         </NuxtLink>
         <button class="menu-toggle" @click="mobileMenuOpen = !mobileMenuOpen" aria-label="Toggle menu">
           <span class="hamburger" :class="{ active: mobileMenuOpen }"></span>
@@ -187,11 +187,6 @@ watch(() => route.fullPath, () => {
   transition: opacity var(--transition-fast);
 }
 
-:global(.dark) .logo,
-:global(html.dark) .logo {
-  color: #FFFFFF !important;
-}
-
 .logo:hover {
   opacity: 0.85;
 }
@@ -203,14 +198,6 @@ watch(() => route.fullPath, () => {
 .logo-text {
   font-family: var(--font-heading);
   letter-spacing: -0.01em;
-}
-
-/* 暗色模式 logo 颜色 */
-:root.dark .logo-text,
-:global(.dark) .logo-text,
-:global(html.dark) .logo-text {
-  color: #fff !important;
-  opacity: 1 !important;
 }
 
 /* ===== Hamburger ===== */
