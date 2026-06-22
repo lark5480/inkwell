@@ -58,6 +58,7 @@
               <div v-if="userMenuOpen" class="nav-dropdown">
                 <NuxtLink :to="`/user/${user?.id}`" class="nav-dropdown-item" @click="userMenuOpen = false">{{ t('nav.myProfile') }}</NuxtLink>
                 <NuxtLink to="/my-articles" class="nav-dropdown-item" @click="userMenuOpen = false">{{ t('nav.myArticles') }}</NuxtLink>
+                <NuxtLink to="/settings" class="nav-dropdown-item" @click="userMenuOpen = false">{{ t('settings.title') }}</NuxtLink>
                 <hr class="nav-dropdown-divider" />
                 <button class="nav-dropdown-item nav-dropdown-logout" @click="handleLogout">{{ t('nav.logout') }}</button>
               </div>

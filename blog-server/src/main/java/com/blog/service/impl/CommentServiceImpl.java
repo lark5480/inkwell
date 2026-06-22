@@ -270,6 +270,7 @@ public class CommentServiceImpl implements CommentService {
     private CommentResponse toCommentResponse(Comment comment, Long currentUserId) {
         Long userId = comment.getUser() != null ? comment.getUser().getId() : null;
         String userNickname = comment.getUser() != null ? comment.getUser().getNickname() : null;
+        String userAvatar = comment.getUser() != null ? comment.getUser().getAvatar() : null;
 
         /* 赞/踩统计 */
         int likeCount = commentVoteRepository.countByCommentIdAndVoteType(comment.getId(), "LIKE");
@@ -302,6 +303,7 @@ public class CommentServiceImpl implements CommentService {
                 comment.getAuthorEmail(),
                 userId,
                 userNickname,
+                userAvatar,
                 comment.getCreateTime(),
                 replies,
                 likeCount,

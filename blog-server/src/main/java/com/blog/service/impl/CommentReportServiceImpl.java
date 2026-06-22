@@ -77,6 +77,12 @@ public class CommentReportServiceImpl implements CommentReportService {
         CommentReport report = commentReportRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "Report not found"));
 
+        /* 标记已解决时同时删除被举报的评论 */
+        if ("RESOLVED".equals(status)) {
+            commentRepository.softDeleteById(report.getCommentId());
+            log.info("举报已解决，已删除评论 commentId={}", report.getCommentId());
+        }
+
         report.setStatus(status);
         report.setResolveTime(LocalDateTime.now());
         commentReportRepository.save(report);

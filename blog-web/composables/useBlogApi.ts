@@ -80,6 +80,7 @@ export interface CommentResponse {
   authorEmail: string
   userId: number | null
   userNickname: string | null
+  userAvatar: string | null
   createdAt: string
   replies: CommentResponse[]
   likeCount: number
@@ -266,6 +267,13 @@ export interface MessageResponse {
   createTime: string
 }
 
+export interface BlockedUserResponse {
+  userId: number
+  nickname: string
+  avatar: string | null
+  bio: string | null
+}
+
 export interface ConversationResponse {
   userId: number
   userName: string | null
@@ -353,8 +361,10 @@ export const useBlogApi = () => {
 
   // Comments
   function getComments(articleId: number) {
-    return $fetch<ApiResult<CommentResponse[]>>(`${apiBase}/web/comments`, { params: { articleId } })
-      .then(handleResponse)
+    return $fetch<ApiResult<CommentResponse[]>>(`${apiBase}/web/comments`, {
+      params: { articleId },
+      headers: getAuthHeaders(),
+    }).then(handleResponse)
   }
 
   function createComment(data: CommentCreateRequest, token?: string) {
@@ -402,6 +412,12 @@ export const useBlogApi = () => {
   function unblockUser(userId: number) {
     return $fetch<ApiResult<void>>(`${apiBase}/web/users/${userId}/block`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
+    }).then(handleResponse)
+  }
+
+  function getBlockedUsers() {
+    return $fetch<ApiResult<BlockedUserResponse[]>>(`${apiBase}/web/user/blocks`, {
       headers: getAuthHeaders(),
     }).then(handleResponse)
   }
@@ -507,6 +523,24 @@ export const useBlogApi = () => {
     return $fetch<ApiResult<UserProfileResponse>>(`${apiBase}/web/user/profile`, {
       method: 'PUT',
       body: data,
+      headers: getAuthHeaders(),
+    }).then(handleResponse)
+  }
+
+  function uploadAvatar(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return $fetch<ApiResult<string>>(`${apiBase}/web/user/avatar`, {
+      method: 'POST',
+      body: formData,
+      headers: getAuthHeaders(),
+    }).then(handleResponse)
+  }
+
+  function changePassword(oldPassword: string, newPassword: string) {
+    return $fetch<ApiResult<void>>(`${apiBase}/web/user/password`, {
+      method: 'PUT',
+      body: { oldPassword, newPassword },
       headers: getAuthHeaders(),
     }).then(handleResponse)
   }
@@ -668,6 +702,7 @@ export const useBlogApi = () => {
     deleteComment,
     blockUser,
     unblockUser,
+    getBlockedUsers,
     getLinks,
     searchArticles,
     searchUsers,
@@ -688,6 +723,8 @@ export const useBlogApi = () => {
     getUserProfile,
     getUserArticles,
     uploadArticleImage,
+    uploadAvatar,
+    changePassword,
     // Follow
     toggleFollow,
     getFollowers,

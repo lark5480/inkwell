@@ -217,9 +217,11 @@ export default {
     reporterId: '举报人',
     created: '举报时间',
     actions: '操作',
-    resolve: '标记解决',
+    resolve: '删除并解决',
+    resolveTitle: '确认处理举报',
+    resolveConfirm: '确定删除该评论并关闭举报？此操作不可恢复。',
     dismiss: '驳回',
-    resolved: '已标记为已解决',
+    resolved: '评论已删除，举报已关闭',
     dismissed: '已驳回',
   },
   user: {

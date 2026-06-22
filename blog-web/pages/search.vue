@@ -111,10 +111,7 @@
             <div class="user-list">
               <div v-for="u in users" :key="u.id" class="user-card">
                 <NuxtLink :to="`/user/${u.id}`" class="user-card-link">
-                  <div class="user-avatar">
-                    <img v-if="u.avatar" :src="u.avatar" :alt="u.nickname" />
-                    <div v-else class="avatar-placeholder">{{ (u.nickname || '?').charAt(0).toUpperCase() }}</div>
-                  </div>
+                  <UserAvatar :user="{ id: u.id, nickname: u.nickname, avatar: u.avatar }" :size="48" />
                   <div class="user-info">
                     <div class="user-name">{{ u.nickname || 'Anonymous' }}</div>
                     <div v-if="u.bio" class="user-bio">{{ u.bio }}</div>
@@ -138,6 +135,7 @@
 
 <script setup lang="ts">
 import type { ArticleWebResponse, UserSearchResponse } from '~/composables/useBlogApi'
+import UserAvatar from '~/components/UserAvatar.vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -9,8 +9,28 @@
       <div v-if="loading" class="chat-loading">{{ t('common.loading') }}</div>
 
       <div v-for="msg in messages" :key="msg.id" class="chat-msg" :class="{ 'chat-msg-own': msg.fromUserId === myId }">
-        <div class="msg-bubble">{{ msg.content }}</div>
-        <div class="msg-time">{{ formatTime(msg.createTime) }}</div>
+        <div v-if="msg.fromUserId !== myId" class="chat-msg-row">
+          <UserAvatar
+            :user="{ id: msg.fromUserId, nickname: msg.fromUserName, avatar: msg.fromUserAvatar }"
+            :size="28"
+            :link="false"
+          />
+          <div class="msg-content">
+            <div class="msg-time">{{ formatTime(msg.createTime) }}</div>
+            <div class="msg-bubble">{{ msg.content }}</div>
+          </div>
+        </div>
+        <div v-else class="chat-msg-row">
+          <div class="msg-content">
+            <div class="msg-time">{{ formatTime(msg.createTime) }}</div>
+            <div class="msg-bubble">{{ msg.content }}</div>
+          </div>
+          <UserAvatar
+            :user="{ id: msg.fromUserId, nickname: msg.fromUserName, avatar: msg.fromUserAvatar }"
+            :size="28"
+            :link="false"
+          />
+        </div>
       </div>
 
       <div v-if="!loading && messages.length === 0" class="chat-empty">{{ t('noMessages') }}</div>
@@ -38,6 +58,7 @@ const { t } = useI18n()
 const { locale } = useI18n()
 const { currentUser } = useAuth()
 const { getMessages, sendMessage, markAllMessagesRead, getUserProfile } = useBlogApi()
+import UserAvatar from '~/components/UserAvatar.vue'
 
 const route = useRoute()
 const peerUserId = Number(route.params.userId)
@@ -144,14 +165,38 @@ onMounted(() => {
 }
 
 .chat-msg {
-  display: flex;
-  flex-direction: column;
-  max-width: 75%;
+  max-width: 80%;
 }
 
 .chat-msg-own {
   align-self: flex-end;
+}
+
+.chat-msg-row {
+  display: flex;
+  gap: 8px;
   align-items: flex-end;
+}
+
+.chat-msg-own .chat-msg-row {
+  flex-direction: row-reverse;
+}
+
+.msg-content {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+.chat-msg-own .msg-content {
+  align-items: flex-end;
+}
+
+.msg-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-bottom: 2px;
+  white-space: nowrap;
 }
 
 .msg-bubble {
@@ -167,13 +212,6 @@ onMounted(() => {
 .chat-msg-own .msg-bubble {
   background: var(--primary);
   color: #fff;
-}
-
-.msg-time {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  margin-top: 2px;
-  padding: 0 4px;
 }
 
 .chat-input-bar {

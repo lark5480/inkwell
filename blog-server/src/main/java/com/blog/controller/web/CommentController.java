@@ -1,6 +1,7 @@
 package com.blog.controller.web;
 
 import com.blog.common.Result;
+import com.blog.dto.BlockedUserResponse;
 import com.blog.dto.CommentCreateRequest;
 import com.blog.dto.CommentResponse;
 import com.blog.dto.ReportRequest;
@@ -44,6 +45,13 @@ public class CommentController {
                 ? userBlockService.getBlockedUserIds(currentUserId)
                 : Collections.emptyList();
         List<CommentResponse> list = commentService.getCommentsByArticle(articleId, currentUserId, blockedUserIds);
+        return Result.success(list);
+    }
+
+    @GetMapping("/user/blocks")
+    public Result<List<BlockedUserResponse>> getBlockedUsers() {
+        Long userId = requireCurrentUserId();
+        List<BlockedUserResponse> list = userBlockService.getBlockedUsers(userId);
         return Result.success(list);
     }
 

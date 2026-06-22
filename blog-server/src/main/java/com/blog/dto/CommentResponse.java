@@ -11,6 +11,7 @@ public record CommentResponse(
         String authorEmail,
         Long userId,
         String userNickname,
+        String userAvatar,
         LocalDateTime createdAt,
         List<CommentResponse> replies,
         int likeCount,

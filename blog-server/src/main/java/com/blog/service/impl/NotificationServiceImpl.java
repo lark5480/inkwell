@@ -11,6 +11,7 @@ import com.blog.exception.BusinessException;
 import com.blog.repository.ArticleRepository;
 import com.blog.repository.CommentRepository;
 import com.blog.repository.NotificationRepository;
+import com.blog.repository.UserBlockRepository;
 import com.blog.repository.UserRepository;
 import com.blog.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserRepository userRepository;
     private final ArticleRepository articleRepository;
     private final CommentRepository commentRepository;
+    private final UserBlockRepository userBlockRepository;
 
     @Override
     @Transactional
@@ -40,8 +42,8 @@ public class NotificationServiceImpl implements NotificationService {
             return;
         }
 
-        /* 通知文章作者 */
-        if (articleAuthorId != null && !articleAuthorId.equals(commenterId)) {
+        /* 通知文章作者（检查是否拉黑了评论者） */
+        if (articleAuthorId != null && !articleAuthorId.equals(commenterId) && !isBlocked(articleAuthorId, commenterId)) {
             Article article = articleRepository.findById(articleId).orElse(null);
             notificationRepository.save(Notification.builder()
                     .userId(articleAuthorId)
@@ -57,10 +59,11 @@ public class NotificationServiceImpl implements NotificationService {
             log.info("通知文章作者 userId={} from={}", articleAuthorId, commenter.getNickname());
         }
 
-        /* 通知父评论作者（如果是回复评论） */
+        /* 通知父评论作者（如果是回复评论，检查是否拉黑了回复者） */
         if (parentCommentAuthorId != null
                 && !parentCommentAuthorId.equals(commenterId)
-                && !parentCommentAuthorId.equals(articleAuthorId)) {
+                && !parentCommentAuthorId.equals(articleAuthorId)
+                && !isBlocked(parentCommentAuthorId, commenterId)) {
             notificationRepository.save(Notification.builder()
                     .userId(parentCommentAuthorId)
                     .type("COMMENT")
@@ -79,7 +82,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void notifyLike(Long articleId, Long likerId, Long articleAuthorId) {
-        if (articleAuthorId == null || articleAuthorId.equals(likerId)) {
+        if (articleAuthorId == null || articleAuthorId.equals(likerId) || isBlocked(articleAuthorId, likerId)) {
             return;
         }
 
@@ -107,7 +110,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void notifyMessage(Long fromUserId, Long toUserId, String content) {
         User sender = userRepository.findById(fromUserId).orElse(null);
-        if (sender == null) return;
+        if (sender == null || isBlocked(toUserId, fromUserId)) return;
 
         notificationRepository.save(Notification.builder()
                 .userId(toUserId)
@@ -123,7 +126,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void notifyCommentLike(Long commentId, Long likerId, Long commentAuthorId) {
-        if (commentAuthorId == null || commentAuthorId.equals(likerId)) return;
+        if (commentAuthorId == null || commentAuthorId.equals(likerId) || isBlocked(commentAuthorId, likerId)) return;
 
         User liker = userRepository.findById(likerId).orElse(null);
         if (liker == null) return;
@@ -154,7 +157,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void notifyFollow(Long followerId, Long followingId) {
-        if (followerId.equals(followingId)) {
+        if (followerId.equals(followingId) || isBlocked(followingId, followerId)) {
             return;
         }
 
@@ -228,5 +231,13 @@ public class NotificationServiceImpl implements NotificationService {
         }
         notification.setIsRead(true);
         notificationRepository.save(notification);
+    }
+
+    /**
+     * 检查接收方是否已拉黑发送方，拉黑了则不发送通知
+     */
+    private boolean isBlocked(Long recipientId, Long senderId) {
+        if (recipientId == null || senderId == null) return false;
+        return userBlockRepository.existsByBlockerIdAndBlockedId(recipientId, senderId);
     }
 }
