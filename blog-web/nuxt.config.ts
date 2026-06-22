@@ -16,7 +16,7 @@ export default defineNuxtConfig({
     // Server-only: SSR 时 $fetch 直连后端
     apiBase: 'http://localhost:8080',
     public: {
-      // Browser: 走相对路径，通过 devProxy 转发到后端（支持局域网访问）
+      // Browser: 动态取当前主机名，apiBase 和 api 类在 composable 里拼接
       apiBase: '',
     },
   },

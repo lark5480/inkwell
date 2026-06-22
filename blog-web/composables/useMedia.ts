@@ -3,8 +3,8 @@
  * 已是绝对 URL（http/https 开头）或 data URI 则原样返回。
  */
 export const useMedia = () => {
-  const config = useRuntimeConfig()
-  const base = config.public.apiBase as string
+  // 浏览器端动态取主机名拼接后端地址，SSR 时用相对路径
+  const base = import.meta.server ? '' : `http://${location.hostname}:8080`
 
   function resolve(url?: string | null): string {
     if (!url) return ''
