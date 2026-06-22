@@ -187,6 +187,11 @@ watch(() => route.fullPath, () => {
   transition: opacity var(--transition-fast);
 }
 
+:global(.dark) .logo,
+:global(html.dark) .logo {
+  color: #FFFFFF !important;
+}
+
 .logo:hover {
   opacity: 0.85;
 }
