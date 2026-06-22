@@ -3,8 +3,10 @@
  * 已是绝对 URL（http/https 开头）或 data URI 则原样返回。
  */
 export const useMedia = () => {
-  // 浏览器端动态取主机名拼接后端地址，SSR 时用相对路径
-  const base = import.meta.server ? '' : `http://${location.hostname}:8080`
+  // SSR 和浏览器端都用动态主机名，避免 hydration 不匹配
+  const base = import.meta.server
+    ? 'http://localhost:8080'
+    : `http://${location.hostname}:8080`
 
   function resolve(url?: string | null): string {
     if (!url) return ''
