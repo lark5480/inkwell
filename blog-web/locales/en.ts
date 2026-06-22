@@ -42,8 +42,8 @@ export default {
     go: 'Go',
   },
   home: {
-    badge: 'Personal Blog',
-    subtitleFallback: 'Sharing thoughts, tutorials, and experiences.',
+    badge: 'Community',
+    subtitleFallback: 'A developer community and knowledge sharing platform',
     browseArticles: 'Browse Articles',
     aboutMe: 'About Me',
     statArticles: 'Articles',

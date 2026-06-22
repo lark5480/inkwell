@@ -309,7 +309,7 @@ async function fetchCategories() {
 await Promise.all([fetchFeatured(), fetchArticles(), fetchCategories(), fetchSiteInfo(), fetchSidebarTags()])
 
 useSeoMeta({
-  title: `${siteTitle.value} — Home`,
+  title: 'Home',
   ogTitle: siteTitle.value,
   description: siteDescription.value,
   ogDescription: siteDescription.value,
@@ -373,7 +373,7 @@ const categoryIcons = [
 .hero-section {
   position: relative;
   padding: var(--space-16) 0 var(--space-10);
-  background: linear-gradient(180deg, #EEF2FF 0%, #F5F3FF 100%);
+  background: var(--bg-secondary);
   overflow: hidden;
 }
 

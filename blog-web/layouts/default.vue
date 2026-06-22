@@ -16,7 +16,7 @@
               </linearGradient>
             </defs>
           </svg>
-          <span class="logo-text">{{ siteName }}</span>
+          <span class="logo-text gradient-text">{{ siteName }}</span>
         </NuxtLink>
         <button class="menu-toggle" @click="mobileMenuOpen = !mobileMenuOpen" aria-label="Toggle menu">
           <span class="hamburger" :class="{ active: mobileMenuOpen }"></span>

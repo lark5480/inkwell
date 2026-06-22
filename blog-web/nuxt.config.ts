@@ -16,9 +16,13 @@ export default defineNuxtConfig({
     // Server-only: SSR 时 $fetch 直连后端
     apiBase: 'http://localhost:8080',
     public: {
-      // Browser: 也直连后端，CORS 已配置允许
-      apiBase: 'http://localhost:8080',
+      // Browser: 动态取当前主机名，apiBase 和 api 类在 composable 里拼接
+      apiBase: '',
     },
+  },
+
+  devServer: {
+    host: '0.0.0.0',
   },
 
   nitro: {

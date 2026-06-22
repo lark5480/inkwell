@@ -254,6 +254,9 @@ export interface NotificationResponse {
 
 export interface UnreadCountResponse {
   count: number
+  comment: number
+  like: number
+  follow: number
 }
 
 export interface MessageResponse {
@@ -296,8 +299,10 @@ function getAuthHeaders(): Record<string, string> {
 // Composable
 export const useBlogApi = () => {
   const config = useRuntimeConfig()
-  // SSR 和 Browser 都直连后端，CORS 已配置允许 localhost:3000
-  const apiBase = (import.meta.server ? config.apiBase : config.public.apiBase) + '/api'
+  // SSR 直连后端；浏览器端动态取当前主机名（支持局域网访问）
+  const apiBase = import.meta.server
+    ? config.apiBase + '/api'
+    : `http://${location.hostname}:8080/api`
 
   function handleResponse<T>(result: ApiResult<T>): T {
     if (result.code !== 200) {

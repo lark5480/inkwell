@@ -42,8 +42,8 @@ export default {
     go: '跳转',
   },
   home: {
-    badge: '个人博客',
-    subtitleFallback: '分享思考、教程与经验。',
+    badge: '技术社区',
+    subtitleFallback: '一个开发者社区与技术分享平台',
     browseArticles: '浏览文章',
     aboutMe: '关于我',
     statArticles: '文章',

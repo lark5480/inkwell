@@ -198,3 +198,23 @@ netstat -tlnp | grep -E '3000|3001|8080|3306|6379'
 ### 跨域问题
 
 开发环境通过 dev proxy 解决（`nuxt.config.ts` 和 `vite.config.ts`），生产环境通过 Nginx 同源代理。
+
+### 图片访问
+
+- **开发环境**：MinIO 图片通过后端代理 `/api/web/files/` 访问（适合局域网）
+- **生产环境**：`application-prod.yml` 中 `blog.storage.minio.use-proxy: false`，图片走 MinIO 直连地址
+- 生产环境建议将 MinIO 置于 CDN 或反向代理后，通过域名访问
+
+### MinIO 配置
+
+```yaml
+blog:
+  storage:
+    type: minio
+    minio:
+      endpoint: http://minio:9000       # 生产环境改为 CDN 域名
+      access-key: ${MINIO_ACCESS_KEY}
+      secret-key: ${MINIO_SECRET_KEY}
+      bucket: blog-images
+      use-proxy: false                  # false=直接 MinIO, true=走后端代理
+```

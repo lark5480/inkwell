@@ -5,19 +5,22 @@
       <h1 v-else class="page-title">{{ t('messages') }}</h1>
     </div>
 
-    <!-- Three notification type icons -->
+    <!-- Three notification type icons with unread badges -->
     <div class="notif-icons">
       <button class="notif-icon-btn" :class="{ active: activeView === 'replies' }" @click="activeView = 'replies'" :title="t('tabReplies')">
         <span class="notif-icon">💬</span>
         <span class="notif-icon-label">{{ t('tabReplies') }}</span>
+        <span v-if="unread.comment > 0" class="notif-icon-badge">{{ unread.comment > 99 ? '99+' : unread.comment }}</span>
       </button>
       <button class="notif-icon-btn" :class="{ active: activeView === 'likes' }" @click="activeView = 'likes'" :title="t('tabLikes')">
         <span class="notif-icon">❤️</span>
         <span class="notif-icon-label">{{ t('tabLikes') }}</span>
+        <span v-if="unread.like > 0" class="notif-icon-badge">{{ unread.like > 99 ? '99+' : unread.like }}</span>
       </button>
       <button class="notif-icon-btn" :class="{ active: activeView === 'followers' }" @click="activeView = 'followers'" :title="t('tabFollowers')">
         <span class="notif-icon">👤</span>
         <span class="notif-icon-label">{{ t('tabFollowers') }}</span>
+        <span v-if="unread.follow > 0" class="notif-icon-badge">{{ unread.follow > 99 ? '99+' : unread.follow }}</span>
       </button>
     </div>
 
@@ -86,8 +89,9 @@ const { t } = useI18n()
 const { locale } = useI18n()
 const route = useRoute()
 const { currentUser } = useAuth()
-const { getConversations, getNotifications, getFollowers, toggleFollow, getFollowStatus, markNotificationTypeAsRead } = useBlogApi()
+const { getConversations, getNotifications, getFollowers, toggleFollow, getFollowStatus, markNotificationTypeAsRead, getUnreadCount } = useBlogApi()
 const unreadCount = useState<number>('notif_unread_count', () => 0)
+const unread = reactive({ comment: 0, like: 0, follow: 0 })
 
 const activeView = ref<'conversations' | 'replies' | 'likes' | 'followers'>('conversations')
 
@@ -196,8 +200,18 @@ function formatTime(dateStr: string): string {
   return d.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
 }
 
+async function fetchPerTypeUnread() {
+  try {
+    const res = await getUnreadCount()
+    unread.comment = res.comment
+    unread.like = res.like
+    unread.follow = res.follow
+  } catch {}
+}
+
 onMounted(() => {
   loadConversations()
+  fetchPerTypeUnread()
 })
 </script>
 
@@ -229,6 +243,24 @@ onMounted(() => {
 .notif-icon-btn.active { background: var(--bg); border-color: var(--primary); color: var(--primary); font-weight: 600; }
 .notif-icon { font-size: 16px; }
 .notif-icon-label { white-space: nowrap; }
+.notif-icon-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: var(--error, #ef4444);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.notif-icon-btn { position: relative; }
 
 /* Conversations */
 .conversation-list { display: flex; flex-direction: column; gap: 2px; }
