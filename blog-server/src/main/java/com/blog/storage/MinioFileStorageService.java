@@ -29,13 +29,10 @@ public class MinioFileStorageService implements FileStorageService {
     private static final String ALLOWED_EXTENSIONS = ".jpg.jpeg.png.gif.webp.svg.bmp";
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-    public MinioFileStorageService(String endpoint, String accessKey, String secretKey, String bucket) {
-        this.endpoint = endpoint;
+    public MinioFileStorageService(MinioClient minioClient, String bucket, String endpoint) {
+        this.minioClient = minioClient;
         this.bucket = bucket;
-        this.minioClient = MinioClient.builder()
-                .endpoint(endpoint)
-                .credentials(accessKey, secretKey)
-                .build();
+        this.endpoint = endpoint;
     }
 
     @PostConstruct
@@ -84,9 +81,9 @@ public class MinioFileStorageService implements FileStorageService {
                     .contentType(file.getContentType())
                     .build());
 
-            /* 返回公开访问 URL（bucket 已设公开读取策略） */
-            String url = endpoint + "/" + bucket + "/" + objectName;
-            log.info("图片上传成功: {}", url);
+            /* 返回通过后端代理访问的 URL（解决局域网访问问题） */
+            String url = "/api/web/files/" + bucket + "/" + objectName;
+            log.info("图片上传成功: proxy={}", url);
             return url;
 
         } catch (Exception e) {

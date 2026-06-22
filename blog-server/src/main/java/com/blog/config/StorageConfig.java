@@ -3,6 +3,7 @@ package com.blog.config;
 import com.blog.storage.FileStorageService;
 import com.blog.storage.LocalFileStorageService;
 import com.blog.storage.MinioFileStorageService;
+import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -20,13 +21,24 @@ public class StorageConfig {
 
     @Bean
     @ConditionalOnProperty(name = "blog.storage.type", havingValue = "minio", matchIfMissing = true)
-    public FileStorageService minioFileStorageService(
+    public MinioClient minioClient(
             @Value("${blog.storage.minio.endpoint}") String endpoint,
             @Value("${blog.storage.minio.access-key}") String accessKey,
-            @Value("${blog.storage.minio.secret-key}") String secretKey,
-            @Value("${blog.storage.minio.bucket}") String bucket) {
+            @Value("${blog.storage.minio.secret-key}") String secretKey) {
+        return MinioClient.builder()
+                .endpoint(endpoint)
+                .credentials(accessKey, secretKey)
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "blog.storage.type", havingValue = "minio", matchIfMissing = true)
+    public FileStorageService minioFileStorageService(
+            MinioClient minioClient,
+            @Value("${blog.storage.minio.bucket}") String bucket,
+            @Value("${blog.storage.minio.endpoint}") String endpoint) {
         log.info("使用 MinIO 文件存储: endpoint={}, bucket={}", endpoint, bucket);
-        return new MinioFileStorageService(endpoint, accessKey, secretKey, bucket);
+        return new MinioFileStorageService(minioClient, bucket, endpoint);
     }
 
     @Bean
