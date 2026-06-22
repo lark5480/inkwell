@@ -217,9 +217,11 @@ export default {
     reporterId: 'Reporter',
     created: 'Created',
     actions: 'Actions',
-    resolve: 'Resolve',
+    resolve: 'Delete & Resolve',
+    resolveTitle: 'Resolve Report',
+    resolveConfirm: 'Delete this comment and close the report? This action cannot be undone.',
     dismiss: 'Dismiss',
-    resolved: 'Marked as resolved',
+    resolved: 'Comment deleted, report resolved',
     dismissed: 'Dismissed',
   },
   user: {

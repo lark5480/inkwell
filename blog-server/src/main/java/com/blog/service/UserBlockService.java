@@ -1,5 +1,6 @@
 package com.blog.service;
 
+import com.blog.dto.BlockedUserResponse;
 import java.util.List;
 
 public interface UserBlockService {
@@ -18,6 +19,11 @@ public interface UserBlockService {
      * 查询指定用户已拉黑的用户ID列表
      */
     List<Long> getBlockedUserIds(Long blockerId);
+
+    /**
+     * 查询指定用户已拉黑的用户详情列表
+     */
+    List<BlockedUserResponse> getBlockedUsers(Long blockerId);
 
     /**
      * 检查是否已拉黑

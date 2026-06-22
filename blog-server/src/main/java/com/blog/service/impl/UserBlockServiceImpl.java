@@ -1,5 +1,7 @@
 package com.blog.service.impl;
 
+import com.blog.dto.BlockedUserResponse;
+import com.blog.entity.User;
 import com.blog.entity.UserBlock;
 import com.blog.exception.BusinessException;
 import com.blog.repository.UserBlockRepository;
@@ -68,6 +70,17 @@ public class UserBlockServiceImpl implements UserBlockService {
     public List<Long> getBlockedUserIds(Long blockerId) {
         List<Long> ids = userBlockRepository.findBlockedUserIdsByBlockerId(blockerId);
         return ids != null ? ids : Collections.emptyList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BlockedUserResponse> getBlockedUsers(Long blockerId) {
+        List<Long> ids = getBlockedUserIds(blockerId);
+        if (ids.isEmpty()) return Collections.emptyList();
+        return userRepository.findAllById(ids).stream()
+                .map(u -> new BlockedUserResponse(
+                        u.getId(), u.getNickname(), u.getAvatar(), u.getBio()))
+                .toList();
     }
 
     @Override

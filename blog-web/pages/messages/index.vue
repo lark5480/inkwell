@@ -27,7 +27,10 @@
       <div v-else-if="conversations.length === 0" class="empty-state"><p>{{ t('noConversations') }}</p></div>
       <div v-else class="conversation-list">
         <NuxtLink v-for="conv in conversations" :key="conv.userId" :to="`/messages/${conv.userId}`" class="conversation-item">
-          <div class="conv-avatar">{{ conv.userName?.charAt(0).toUpperCase() || '?' }}</div>
+          <UserAvatar
+            :user="{ id: conv.userId, nickname: conv.userName, avatar: conv.userAvatar }"
+            :size="40"
+          />
           <div class="conv-info">
             <div class="conv-header">
               <span class="conv-name">{{ conv.userName || t('common.unknown') }}</span>
@@ -57,7 +60,7 @@
       <div v-else class="follower-list">
         <div v-for="f in followers" :key="f.userId" class="follower-item">
           <NuxtLink :to="`/user/${f.userId}`" class="follower-info">
-            <div class="follower-avatar">{{ f.nickname?.charAt(0).toUpperCase() || '?' }}</div>
+            <UserAvatar :user="{ id: f.userId, nickname: f.nickname, avatar: f.avatar }" :size="40" />
             <div>
               <div class="follower-name">{{ f.nickname }}</div>
               <div v-if="f.bio" class="follower-bio">{{ f.bio }}</div>
@@ -75,6 +78,7 @@
 
 <script setup lang="ts">
 import type { NotificationResponse, FollowerResponse } from '~/composables/useBlogApi'
+import UserAvatar from '~/components/UserAvatar.vue'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 

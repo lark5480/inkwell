@@ -56,6 +56,11 @@
             :class="['tab-btn', { active: activeTab === 'likes' }]"
             @click="switchTab('likes')"
           >{{ t('user.tabLikes') }}</button>
+          <button
+            v-if="isOwner"
+            :class="['tab-btn', { active: activeTab === 'blocked' }]"
+            @click="switchTab('blocked')"
+          >{{ t('user.blocked') || 'Blocked' }}</button>
         </div>
 
         <!-- Articles Tab -->
@@ -137,6 +142,30 @@
           </div>
         </div>
 
+        <!-- Blocked Users Tab -->
+        <div v-if="activeTab === 'blocked'" class="tab-content">
+          <div v-if="blockedLoading" class="loading-state">{{ t('common.loading') }}</div>
+          <div v-else-if="blockedUsers.length === 0" class="empty-state">{{ t('user.noBlocked') || 'No blocked users' }}</div>
+          <div v-else class="user-list">
+            <div v-for="u in blockedUsers" :key="u.userId" class="user-item">
+              <NuxtLink :to="`/user/${u.userId}`" class="user-item-link">
+                <UserAvatar :user="{ id: u.userId, nickname: u.nickname, avatar: u.avatar }" :size="40" />
+                <div class="user-item-info">
+                  <span class="user-item-name">{{ u.nickname }}</span>
+                  <span v-if="u.bio" class="user-item-bio">{{ u.bio }}</span>
+                </div>
+              </NuxtLink>
+              <div class="user-item-actions">
+                <button
+                  class="follow-btn followed"
+                  @click="handleUnblock(u.userId)"
+                  :disabled="unblockingIds.has(u.userId)"
+                >{{ unblockingIds.has(u.userId) ? '...' : (t('user.unblock') || 'Unblock') }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Followers Tab -->
         <div v-if="activeTab === 'followers'" class="tab-content">
           <div v-if="followersLoading" class="loading-state">{{ t('common.loading') }}</div>
@@ -144,8 +173,7 @@
           <div v-else class="user-list">
             <div v-for="f in followers" :key="f.userId" class="user-item">
               <NuxtLink :to="`/user/${f.userId}`" class="user-item-link">
-                <img v-if="f.avatar" :src="f.avatar" class="user-item-avatar" alt="" />
-                <div v-else class="user-item-avatar-placeholder">{{ (f.nickname || '?').charAt(0).toUpperCase() }}</div>
+                <UserAvatar :user="{ id: f.userId, nickname: f.nickname, avatar: f.avatar }" :size="40" />
                 <div class="user-item-info">
                   <span class="user-item-name">{{ f.nickname }}</span>
                   <span v-if="f.bio" class="user-item-bio">{{ f.bio }}</span>
@@ -167,21 +195,17 @@
           <div v-else class="user-list">
             <div v-for="f in followingList" :key="f.userId" class="user-item">
               <NuxtLink :to="`/user/${f.userId}`" class="user-item-link">
-                <img v-if="f.avatar" :src="f.avatar" class="user-item-avatar" alt="" />
-                <div v-else class="user-item-avatar-placeholder">{{ (f.nickname || '?').charAt(0).toUpperCase() }}</div>
+                <UserAvatar :user="{ id: f.userId, nickname: f.nickname, avatar: f.avatar }" :size="40" />
                 <div class="user-item-info">
                   <span class="user-item-name">{{ f.nickname }}</span>
                   <span v-if="f.bio" class="user-item-bio">{{ f.bio }}</span>
                 </div>
               </NuxtLink>
-              <button
-                v-if="isOwner"
-                class="user-item-chat-btn"
-                :title="t('messages')"
-                @click="navigateTo(`/messages/${f.userId}`)"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              </button>
+              <div v-if="isOwner" class="user-item-actions">
+                <button class="follow-btn followed" @click="handleUnfollow(f.userId)" :disabled="followLoadingSet.has(f.userId)">
+                  {{ followLoadingSet.has(f.userId) ? '...' : t('user.following') }}
+                </button>
+              </div>
             </div>
           </div>
           <div v-if="followingTotalPages > 1" class="pagination">
@@ -196,11 +220,12 @@
 </template>
 
 <script setup lang="ts">
-import type { UserPublicResponse, ArticleWebResponse, HistoryItemResponse, FollowerResponse, FollowingResponse } from '~/composables/useBlogApi'
+import type { UserPublicResponse, ArticleWebResponse, HistoryItemResponse, FollowerResponse, FollowingResponse, BlockedUserResponse } from '~/composables/useBlogApi'
+import UserAvatar from '~/components/UserAvatar.vue'
 
 const route = useRoute()
 const userId = Number(route.params.id)
-const { getUserProfile, getUserArticles, getMyHistory, getMyLikes, deleteMyHistory, toggleFollow, getFollowers, getFollowing, getFollowStatus } = useBlogApi()
+const { getUserProfile, getUserArticles, getMyHistory, getMyLikes, deleteMyHistory, toggleFollow, getFollowers, getFollowing, getFollowStatus, getBlockedUsers, unblockUser } = useBlogApi()
 const { user, isLoggedIn } = useAuth()
 const { confirm } = useModal()
 const { t } = useI18n()
@@ -281,18 +306,63 @@ const followingList = ref<FollowingResponse[]>([])
 const followingLoading = ref(false)
 const followingPage = ref(1)
 const followingTotalPages = ref(1)
+const followLoadingSet = ref(new Set<number>())
+
+async function handleUnfollow(targetId: number) {
+  if (followLoadingSet.value.has(targetId)) return
+  followLoadingSet.value = new Set([...followLoadingSet.value, targetId])
+  try {
+    await toggleFollow(targetId)
+    followingList.value = followingList.value.filter(f => f.userId !== targetId)
+    if (profile.value && profile.value.followingCount > 0) {
+      profile.value.followingCount--
+    }
+  } catch {}
+  finally {
+    const s = new Set(followLoadingSet.value)
+    s.delete(targetId)
+    followLoadingSet.value = s
+  }
+}
+
+// Blocked users tab
+const blockedUsers = ref<BlockedUserResponse[]>([])
+const blockedLoading = ref(false)
+const unblockingIds = ref(new Set<number>())
+
+async function loadBlockedUsers() {
+  blockedLoading.value = true
+  try {
+    blockedUsers.value = await getBlockedUsers()
+  } catch {}
+  finally { blockedLoading.value = false }
+}
+
+async function handleUnblock(userId: number) {
+  unblockingIds.value = new Set([...unblockingIds.value, userId])
+  try {
+    await unblockUser(userId)
+    blockedUsers.value = blockedUsers.value.filter(u => u.userId !== userId)
+  } catch {}
+  finally {
+    const s = new Set(unblockingIds.value)
+    s.delete(userId)
+    unblockingIds.value = s
+  }
+}
 
 function formatDate(dateStr: string) {
   const { locale } = useI18n()
   return new Date(dateStr).toLocaleDateString(locale.value, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-function switchTab(tab: 'articles' | 'history' | 'likes' | 'followers' | 'following') {
+function switchTab(tab: 'articles' | 'history' | 'likes' | 'followers' | 'following' | 'blocked') {
   activeTab.value = tab
   if (tab === 'articles' && !articles.value.length) loadArticles(1)
   if (tab === 'history' && !historyItems.value.length) loadHistory(1)
   if (tab === 'likes' && !likeItems.value.length) loadLikes(1)
   if (tab === 'followers' && !followers.value.length) loadFollowers(1)
+  if (tab === 'blocked' && !blockedUsers.value.length) loadBlockedUsers()
   if (tab === 'following' && !followingList.value.length) loadFollowing(1)
 }
 
@@ -506,6 +576,9 @@ onMounted(loadProfile)
 }
 
 .user-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
   background: var(--bg-card);
   border: var(--clay-border);
@@ -547,24 +620,9 @@ onMounted(loadProfile)
   flex-shrink: 0;
 }
 
-.user-item-chat-btn {
+.user-item-actions {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition-fast);
   margin-left: auto;
-}
-.user-item-chat-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--primary);
 }
 
 .user-item-info {

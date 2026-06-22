@@ -4,6 +4,9 @@ import com.blog.entity.Comment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,4 +21,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     Page<Comment> findByStatus(String status, Pageable pageable);
 
     int countByArticleIdAndStatus(Long articleId, String status);
+
+    @Modifying
+    @Query("UPDATE Comment c SET c.isDeleted = true WHERE c.id = :id")
+    void softDeleteById(@Param("id") Long id);
 }

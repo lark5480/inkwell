@@ -2,7 +2,10 @@
   <div class="comment-item" :class="{ 'comment-deleted': isDeleted }">
     <!-- 根评论：完整布局 -->
     <template v-if="!isReply">
-      <div class="comment-avatar">{{ initials }}</div>
+      <UserAvatar
+        :user="{ id: comment.userId, nickname: comment.userNickname, avatar: comment.userAvatar }"
+        :size="36"
+      />
       <div class="comment-content">
         <div class="comment-header">
           <span class="comment-author">{{ comment.authorName }}</span>
@@ -21,9 +24,19 @@
           @reply="toggleReplyForm('root')"
           @copy="handleCopy"
           @delete="handleDelete"
-          @report="handleReport"
+          @report="handleReportClick"
           @block="handleBlock"
         />
+        <!-- Inline report reason selector -->
+        <div v-if="showReportOptions" class="report-options">
+          <button
+            v-for="r in reportReasons"
+            :key="r.value"
+            class="report-option-btn"
+            @click="handleReportSubmit(r.value)"
+          >{{ r.label }}</button>
+          <button class="report-option-btn report-option-cancel" @click="showReportOptions = false">{{ t('common.cancel') }}</button>
+        </div>
 
         <!-- 未登录提示 -->
         <div v-if="showRootReplyForm && !isLoggedIn" class="reply-login-prompt">
@@ -80,11 +93,13 @@
 
 <script setup lang="ts">
 import type { CommentResponse, VoteResult } from '~/composables/useBlogApi'
+import UserAvatar from '~/components/UserAvatar.vue'
 
 const { t } = useI18n()
 const { locale } = useI18n()
 const { isLoggedIn, currentUser, token } = useAuth()
 const { voteComment, reportComment, deleteComment, blockUser, createComment } = useBlogApi()
+const { confirm, alert } = useModal()
 
 const props = defineProps<{
   comment: CommentResponse
@@ -122,11 +137,6 @@ const visibleReplies = computed(() => {
 const isOwnComment = computed(() => {
   if (!currentUser.value || !props.comment.userId) return false
   return currentUser.value.id === props.comment.userId
-})
-
-const initials = computed(() => {
-  const name = props.comment.authorName || 'A'
-  return name.charAt(0).toUpperCase()
 })
 
 function formatDate(dateStr: string): string {
@@ -216,24 +226,36 @@ async function handleCopy() {
 }
 
 async function handleDelete(commentId: number) {
-  if (!confirm(t('comment.confirmDelete'))) return
+  const ok = await confirm({ title: t('comment.confirmDeleteTitle') || '删除评论', message: t('comment.confirmDelete'), type: 'warning', confirmText: t('common.delete') })
+  if (!ok) return
   try { await deleteComment(commentId); isDeleted.value = true }
   catch { /* ignore */ }
 }
 
-async function handleReport(commentId: number) {
-  const reason = prompt(t('comment.reportReason'))
-  if (!reason) return
+const showReportOptions = ref(false)
+const reportReasons = computed(() => [
+  { value: 'SPAM', label: t('comment.reasonSpam') },
+  { value: 'ABUSE', label: t('comment.reasonAbuse') },
+  { value: 'OTHER', label: t('comment.reasonOther') },
+])
+
+async function handleReportClick() {
+  showReportOptions.value = !showReportOptions.value
+}
+
+async function handleReportSubmit(reason: string) {
+  showReportOptions.value = false
   try {
-    await reportComment(commentId, reason)
-    alert(t('comment.reportSubmitted'))
+    await reportComment(props.comment.id, reason)
+    alert({ title: t('comment.reportSubmitted'), message: t('comment.reportSubmitted'), type: 'info' })
   } catch (e: any) {
-    alert(e.message?.includes('Already reported') ? t('comment.alreadyReported') : t('comment.reportSubmitted'))
+    alert({ message: e.message?.includes('Already reported') ? t('comment.alreadyReported') : t('comment.reportSubmitted'), type: 'info' })
   }
 }
 
 async function handleBlock(userId: number) {
-  if (!confirm(t('comment.confirmBlock'))) return
+  const ok = await confirm({ title: t('comment.confirmBlockTitle') || '拉黑用户', message: t('comment.confirmBlock'), type: 'warning', confirmText: t('comment.block') })
+  if (!ok) return
   try { await blockUser(userId); isDeleted.value = true }
   catch { /* ignore */ }
 }
@@ -373,6 +395,42 @@ async function handleBlock(userId: number) {
   font-family: var(--font-body);
 }
 .toggle-replies-btn:hover { text-decoration: underline; }
+
+/* 内联举报原因选择 */
+.report-options {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.report-option-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-body);
+}
+
+.report-option-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--bg-card);
+}
+
+.report-option-cancel {
+  color: var(--text-muted);
+}
+
+.report-option-cancel:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
 
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {

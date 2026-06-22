@@ -6,9 +6,12 @@ import com.blog.entity.User;
 import com.blog.exception.BusinessException;
 import com.blog.repository.ArticleRepository;
 import com.blog.repository.UserRepository;
+import com.blog.storage.FileStorageService;
 import com.blog.service.UserArticleService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +26,8 @@ public class UserProfileController {
     private final UserRepository userRepository;
     private final ArticleRepository articleRepository;
     private final UserArticleService userArticleService;
+    private final FileStorageService fileStorageService;
+    private final PasswordEncoder passwordEncoder;
 
     private Long getUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -60,6 +65,35 @@ public class UserProfileController {
                 user.getAvatar(), user.getBio(), user.getEmail(),
                 user.getCreateTime()
         ));
+    }
+
+    // ========== Avatar Upload ==========
+
+    @PostMapping("/api/web/user/avatar")
+    public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        User user = userRepository.findById(getUserId())
+                .orElseThrow(() -> new BusinessException(404, "User not found"));
+
+        String avatarUrl = fileStorageService.uploadImage(file);
+        user.setAvatar(avatarUrl);
+        userRepository.save(user);
+        return Result.success(avatarUrl);
+    }
+
+    // ========== Password Change ==========
+
+    @PutMapping("/api/web/user/password")
+    public Result<Void> changePassword(@Valid @RequestBody PasswordChangeRequest request) {
+        User user = userRepository.findById(getUserId())
+                .orElseThrow(() -> new BusinessException(404, "User not found"));
+
+        if (!passwordEncoder.matches(request.oldPassword(), user.getPassword())) {
+            throw new BusinessException(400, "Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        return Result.success();
     }
 
     // ========== Public: user search ==========

@@ -9,6 +9,13 @@
           <span v-if="article.categoryName" class="article-category-tag">{{ article.categoryName }}</span>
           <time class="article-date">{{ formatDate(article.publishedAt) }}</time>
         </div>
+        <div v-if="article.authorId" class="article-card-author">
+          <UserAvatar
+            :user="{ id: article.authorId, nickname: article.authorName, avatar: article.authorAvatar }"
+            :size="20"
+          />
+          <span class="author-name">{{ article.authorName }}</span>
+        </div>
         <h2 class="article-card-title">{{ article.title }}</h2>
         <p class="article-card-summary">{{ article.summary }}</p>
         <div class="article-card-footer">
@@ -37,6 +44,7 @@
 
 <script setup lang="ts">
 import type { ArticleWebResponse } from '~/composables/useBlogApi'
+import UserAvatar from '~/components/UserAvatar.vue'
 
 const props = defineProps<{
   article: ArticleWebResponse
@@ -124,6 +132,19 @@ function formatDate(dateStr: string): string {
 .article-date {
   font-size: var(--font-size-sm);
   color: var(--text-muted);
+}
+
+.article-card-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-2);
+}
+
+.article-card-author .author-name {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .article-card-title {

@@ -79,7 +79,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { getReports, updateReportStatus, type CommentReport } from '@/api/reports'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
@@ -119,11 +119,16 @@ async function fetchReports() {
 
 async function handleResolve(id: number) {
   try {
+    await ElMessageBox.confirm(t('report.resolveConfirm'), t('report.resolveTitle'), {
+      confirmButtonText: t('report.resolve'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning',
+    })
     await updateReportStatus(id, 'RESOLVED')
     ElMessage.success(t('report.resolved'))
     fetchReports()
   } catch {
-    // error handled by interceptor
+    // cancelled or error
   }
 }
 
