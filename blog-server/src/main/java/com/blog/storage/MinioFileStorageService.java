@@ -21,18 +21,20 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class MinioFileStorageService implements FileStorageService {
-    
+
     private final MinioClient minioClient;
     private final String bucket;
     private final String endpoint;
+    private final boolean useProxy;
 
     private static final String ALLOWED_EXTENSIONS = ".jpg.jpeg.png.gif.webp.svg.bmp";
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-    public MinioFileStorageService(MinioClient minioClient, String bucket, String endpoint) {
+    public MinioFileStorageService(MinioClient minioClient, String bucket, String endpoint, boolean useProxy) {
         this.minioClient = minioClient;
         this.bucket = bucket;
         this.endpoint = endpoint;
+        this.useProxy = useProxy;
     }
 
     @PostConstruct
@@ -81,9 +83,15 @@ public class MinioFileStorageService implements FileStorageService {
                     .contentType(file.getContentType())
                     .build());
 
-            /* 返回通过后端代理访问的 URL（解决局域网访问问题） */
-            String url = "/api/web/files/" + bucket + "/" + objectName;
-            log.info("图片上传成功: proxy={}", url);
+            String url;
+            if (useProxy) {
+                /* 返回通过后端代理访问的 URL（开发环境，支持局域网） */
+                url = "/api/web/files/" + bucket + "/" + objectName;
+            } else {
+                /* 返回 MinIO 直接 URL（生产环境，可套 CDN） */
+                url = endpoint + "/" + bucket + "/" + objectName;
+            }
+            log.info("图片上传成功: url={}", url);
             return url;
 
         } catch (Exception e) {

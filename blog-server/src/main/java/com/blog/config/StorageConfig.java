@@ -36,9 +36,10 @@ public class StorageConfig {
     public FileStorageService minioFileStorageService(
             MinioClient minioClient,
             @Value("${blog.storage.minio.bucket}") String bucket,
-            @Value("${blog.storage.minio.endpoint}") String endpoint) {
-        log.info("使用 MinIO 文件存储: endpoint={}, bucket={}", endpoint, bucket);
-        return new MinioFileStorageService(minioClient, bucket, endpoint);
+            @Value("${blog.storage.minio.endpoint}") String endpoint,
+            @Value("${blog.storage.minio.use-proxy:true}") boolean useProxy) {
+        log.info("使用 MinIO 文件存储: endpoint={}, bucket={}, useProxy={}", endpoint, bucket, useProxy);
+        return new MinioFileStorageService(minioClient, bucket, endpoint, useProxy);
     }
 
     @Bean

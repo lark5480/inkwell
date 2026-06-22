@@ -39,6 +39,7 @@ blog:
       access-key: ${MINIO_ACCESS_KEY:minioadmin}
       secret-key: ${MINIO_SECRET_KEY:minioadmin}
       bucket: ${MINIO_BUCKET:blog-images}
+      use-proxy: false
 
 logging:
   level:
