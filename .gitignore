@@ -38,6 +38,7 @@ docs/superpowers
 
 # Claude local config
 .claude/settings.local.json
+.claude/skills/
 
 # OS
 .DS_Store
