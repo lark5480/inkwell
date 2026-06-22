@@ -203,8 +203,11 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional(readOnly = true)
     public UnreadCountResponse getUnreadCount(Long userId) {
-        long count = notificationRepository.countByUserIdAndIsRead(userId, false);
-        return new UnreadCountResponse(count);
+        long total = notificationRepository.countByUserIdAndIsRead(userId, false);
+        long comment = notificationRepository.countByUserIdAndTypeAndIsRead(userId, "COMMENT", false);
+        long like = notificationRepository.countByUserIdAndTypeAndIsRead(userId, "LIKE", false);
+        long follow = notificationRepository.countByUserIdAndTypeAndIsRead(userId, "FOLLOW", false);
+        return new UnreadCountResponse(total, comment, like, follow);
     }
 
     @Override

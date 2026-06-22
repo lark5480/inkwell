@@ -254,6 +254,9 @@ export interface NotificationResponse {
 
 export interface UnreadCountResponse {
   count: number
+  comment: number
+  like: number
+  follow: number
 }
 
 export interface MessageResponse {
