@@ -486,3 +486,14 @@ INSERT IGNORE INTO `settings` (`setting_key`, `setting_value`, `description`) VA
 ('about_content',    '## 关于我\n\n一名全栈开发者，热爱技术、阅读与生活。\n\n这个博客主要分享：\n\n- 技术教程与踩坑记录\n- 读书笔记与感悟\n- 生活随笔与效率工具\n\n欢迎通过评论与我交流。', '关于页内容（Markdown）'),
 ('footer_info',      'Inkwell &mdash; Built with Spring Boot &amp; Nuxt 3', '页脚信息'),
 ('sensitive_words',  '赌博,色情,诈骗,毒品,暴力,恐怖,反动,代孕,裸聊,刷单,兼职,日结,高薪招聘,微信号,QQ群,私聊', '评论敏感词（逗号分隔，命中自动进入人工审核）');
+
+-- Friend links (友链)
+INSERT IGNORE INTO `links` (`name`, `url`, `avatar`, `description`, `sort`) VALUES
+('Vue.js',       'https://vuejs.org',                          NULL, '渐进式 JavaScript 框架',                    1),
+('Spring',       'https://spring.io',                          NULL, 'Java 企业级应用框架',                       2),
+('Nuxt.js',      'https://nuxt.com',                           NULL, 'Vue 的元框架：SSR、SSG 一应俱全',           3),
+('Vite',         'https://vitejs.dev',                         NULL, '下一代前端构建工具',                         4),
+('MDN Web Docs', 'https://developer.mozilla.org/zh-CN/',       NULL, 'Web 技术权威文档',                          5),
+('GitHub',       'https://github.com',                         NULL, '全球最大的代码托管平台',                     6),
+('Stack Overflow', 'https://stackoverflow.com',                NULL, '程序员问答社区',                             7),
+('Rust 语言',     'https://www.rust-lang.org/zh-CN',            NULL, '一门赋予每个人构建可靠高效软件能力的语言',    8);
