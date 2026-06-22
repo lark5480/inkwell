@@ -309,7 +309,7 @@ async function fetchCategories() {
 await Promise.all([fetchFeatured(), fetchArticles(), fetchCategories(), fetchSiteInfo(), fetchSidebarTags()])
 
 useSeoMeta({
-  title: `${siteTitle.value} — Home`,
+  title: 'Home',
   ogTitle: siteTitle.value,
   description: siteDescription.value,
   ogDescription: siteDescription.value,
