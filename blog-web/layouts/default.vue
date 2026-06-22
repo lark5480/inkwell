@@ -198,6 +198,11 @@ watch(() => route.fullPath, () => {
 .logo-text {
   font-family: var(--font-heading);
   letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+:global(html.dark) .logo-text {
+  color: #F5F3FF;
 }
 
 /* ===== Hamburger ===== */
