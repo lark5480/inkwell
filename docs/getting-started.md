@@ -98,15 +98,16 @@ personal-blog/
 │   │   ├── controller/
 │   │   │   ├── admin/     # B端 API (/api/admin/**)
 │   │   │   └── web/       # C端 API (/api/web/**)
-│   │   ├── service/       # 业务逻辑
+│   │   ├── service/       # 业务逻辑 (含通知、拉黑、举报过滤)
 │   │   ├── repository/    # JPA 数据访问
 │   │   ├── entity/        # 数据模型 (含 ArticleLike, ArticleViewHistory)
 │   │   ├── dto/           # 请求/响应 DTO (Java records)
 │   │   ├── security/      # JWT 认证
+│   │   ├── storage/       # 文件存储 (MinIO / 本地)
 │   │   ├── schedule/      # 定时任务 (Redis 回写)
 │   │   └── exception/     # 全局异常处理
 │   └── src/main/resources/
-│       ├── application.yml      # 主配置
+│       ├── application.yml      # 主配置 (含 MinIO 存储配置)
 │       ├── application-dev.yml  # 开发环境配置
 │       └── application-docker.yml # Docker 环境配置
 │
@@ -196,7 +197,8 @@ docker compose logs -f    # 查看日志
 | `/category/:slug` | 分类文章 |
 | `/tag/:slug` | 标签文章 |
 | `/user/:id` | 用户公开主页 (文章/关注/粉丝/历史) |
-| `/messages` | 消息中心 (私信会话 + 通知分类) |
+| `/settings` | 个人设置 (头像/昵称/签名/修改密码) |
+| `/messages` | 消息中心 (私信会话 + 通知分类，含各类型未读数) |
 | `/messages/:userId` | 私信对话 |
 | `/write` | 写文章 |
 | `/my-articles` | 我的文章管理 |
@@ -250,8 +252,15 @@ docker compose logs -f    # 查看日志
 - `POST /api/web/users/{id}/block` — 拉黑用户
 - `DELETE /api/web/users/{id}/block` — 取消拉黑
 - `POST /api/web/users/{id}/follow` — 关注/取消关注
+- `GET /api/web/users/search?q=` — 搜索用户
 - `GET /api/web/messages/conversations` — 会话列表
+- `GET /api/web/messages?userId=&page=&pageSize=` — 聊天记录
 - `POST /api/web/messages` — 发送私信
+- `GET /api/web/messages/unread-count` — 私信未读数
+- `GET /api/web/comments?articleId=` — 文章评论（已过滤拉黑用户）
+- `POST /api/web/comments/{id}/vote` — 赞/踩投票
+- `POST /api/web/comments/{id}/report` — 举报评论
+- `DELETE /api/web/comments/{id}` — 删除自己的评论
 
 **C 端（需登录）** `/api/web/user/**`
 
@@ -265,12 +274,22 @@ docker compose logs -f    # 查看日志
 - `DELETE /api/web/user/history/:id` — 删除浏览记录
 - `GET /api/web/user/likes` — 点赞记录
 - `GET /api/web/user/profile` — 我的资料
-- `PUT /api/web/user/profile` — 更新资料
+- `PUT /api/web/user/profile` — 更新资料（昵称/签名）
+- `POST /api/web/user/avatar` — 上传头像（前端裁剪后上传到 MinIO）
+- `PUT /api/web/user/password` — 修改密码
+- `GET /api/web/user/blocks` — 已拉黑的用户列表（支持取消拉黑）
 
 **C 端（公开）** `/api/web/users/**`
 
-- `GET /api/web/users/:id` — 用户公开主页
+- `GET /api/web/users/:id` — 用户公开主页（含文章数/关注数）
 - `GET /api/web/users/:id/articles` — 用户公开文章列表
+- `GET /api/web/users/:id/followers` — 粉丝列表
+- `GET /api/web/users/:id/following` — 关注列表
+- `GET /api/web/users/:id/follow-status` — 关注状态
+
+**C 端（文件代理）** `/api/web/files/{bucket}/**`
+
+- `GET /api/web/files/{bucket}/...` — 通过后端代理访问 MinIO 文件（开发环境）
 
 **B 端** `/api/admin/**` — 需要 Bearer Token，ADMIN 角色
 
@@ -337,6 +356,17 @@ jwt:
 确认 Redis 已启动，端口 6379。
 
 **Q: 前端请求后端 404/跨域？**
-后端 `CorsConfig` 已配置允许 `localhost:3000` 和 `localhost:3001`，确认后端先启动。
-Nuxt 3 开发模式下 `/api` 由 `devProxy` 转发到 `localhost:8080`。
-Vite 开发模式下 `/api` 由 `proxy` 转发到 `localhost:8080`。
+后端 `CorsConfig` 已配置允许所有来源（开发环境），确认后端先启动。
+Nuxt 3 和 Vite 开发模式下 `/api` 由 `proxy` 转发到 `localhost:8080`。
+
+**Q: 局域网内同事访问不到开发服务器？**
+前端启动时会绑定 `0.0.0.0`，同事用 `http://你的IP:3000` 访问即可。
+浏览器端 API 会自动拼接当前主机名 + `:8080`，后端需要能通过该地址访问。
+
+**Q: MinIO 的图片同事看不到？**
+开发环境 `use-proxy=true`（默认），图片通过后端代理 `/api/web/files/` 访问，局域网友好。
+生产环境 `use-proxy=false`，返回 MinIO 直连地址，需确保 MinIO 端点可公网访问。
+
+**Q: 拉黑了用户还能看到他的评论？**
+拉黑后评论列表会自动过滤被拉黑用户的评论（需要登录状态）。
+可以在个人主页「黑名单」tab 管理已拉黑用户。被拉黑用户的通知也会被过滤。

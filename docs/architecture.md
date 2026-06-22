@@ -39,13 +39,14 @@ com.blog/
 │       ├── ArticleController   # 文章列表/详情/点赞
 │       ├── AuthController      # 登录/注册
 │       ├── CategoryController, TagController, LinkController
-│       ├── CommentController   # 评论 + 投票/举报/删除/拉黑
+│       ├── CommentController   # 评论 + 投票/举报/删除/拉黑/黑名单列表
 │       ├── WebController       # 搜索/归档/站点信息/RSS/Sitemap
 │       ├── UserArticleController  # 用户文章 CRUD + 历史记录 + 点赞记录
-│       ├── UserProfileController  # 用户资料 + 公开主页
+│       ├── UserProfileController  # 用户资料 + 头像上传 + 公开主页 + 改密码
 │       ├── FollowController    # 关注/粉丝
 │       ├── MessageController   # 私信
-│       └── NotificationController # 站内通知
+│       ├── NotificationController # 站内通知（含各类型未读数）
+│       └── FileController      # MinIO 文件代理（开发环境）
 ├── service/
 │   ├── impl/        # 业务逻辑实现
 │   │   ├── ArticleServiceImpl      # 文章 + 点赞 toggle + 浏览记录
@@ -77,6 +78,10 @@ com.blog/
 - **缓存一致性**：用户写操作通过 `@CacheEvict` 清除 ARTICLE_LIST/ARCHIVE/DETAIL/HTML/PREV_NEXT/SITE_INFO 缓存
 - **多作者支持**：每个用户只能管理自己的文章，`UserArticleServiceImpl` 含 ownership 检查
 - **文件存储**：`FileStorageService` 接口抽象，通过 `blog.storage.type` 配置切换 MinIO / 本地存储，`@ConditionalOnProperty` 自动选择实现
+- **头像裁剪**：前端使用 Canvas 裁剪为 200×200 后上传到 MinIO，通过 `/api/web/files/` 代理访问（开发环境）或直接 MinIO URL（生产环境）
+- **拉黑机制**：`UserBlock` 表记录拉黑关系，拉黑后的用户评论在服务端自动过滤，通知系统在创建时跳过被拉黑用户
+- **通知分类未读**：`UnreadCountResponse` 返回 `count/comment/like/follow` 各类型未读数，前端分 tab 展示
+- **举报处理**：管理员标记「已解决」时自动软删除被举报的评论
 
 ### 认证流程
 
@@ -97,9 +102,10 @@ pages/           # 路由页面 (自动路由)
   ├── article/edit/[id].vue # 编辑文章
   ├── category/[slug].vue # 分类页
   ├── tag/[slug].vue      # 标签页
-  ├── user/[id].vue       # 用户公开主页 (文章/历史/点赞/关注/粉丝)
-  ├── messages/index.vue  # 消息中心 (私信会话 + 通知分类查看)
-  ├── messages/[userId].vue # 私信对话
+  ├── user/[id].vue       # 用户公开主页 (文章/历史/点赞/关注/粉丝/黑名单)
+  ├── settings.vue        # 个人设置 (头像裁剪上传/昵称/签名/改密码)
+  ├── messages/index.vue  # 消息中心 (私信会话 + 通知分类查看 + 各类未读数)
+  ├── messages/[userId].vue # 私信对话 (带头像)
   ├── write.vue           # 写文章 (Markdown 编辑器)
   ├── my-articles.vue     # 我的文章管理
   ├── notifications.vue   # 通知 (重定向到 /messages)
@@ -115,9 +121,11 @@ composables/
 middleware/
   └── auth.ts         # 认证守卫 (SSR guard)
 components/
+  ├── UserAvatar.vue      # 通用头像组件 (有图/首字母兜底/多尺寸/可点击)
   ├── TocBlock.vue        # 文章 TOC 目录 (IntersectionObserver)
   ├── MarkdownRenderer.vue # Markdown 渲染
   ├── CommentActionBar.vue  # 评论操作栏 (赞/踩/回复/分享/更多)
+  ├── CommentItem.vue       # 评论条目 (含头像显示/回复/举报/拉黑)
   ├── VoteButton.vue        # 赞/踩按钮
   ├── MoreMenu.vue          # 三点菜单
   ├── SharePopover.vue      # 分享面板
