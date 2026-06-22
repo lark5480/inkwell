@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Build output
+target/
+dist/
+.output/
+*.jar
+!target/*.jar
+*.war
+*.class
+
+# Nuxt / Vite
+.nuxt/
+.vite/
+
+# Uploads
+uploads/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+.settings/
+.project
+.classpath
+.superpowers
+docs/superpowers
+
+# Claude local config
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

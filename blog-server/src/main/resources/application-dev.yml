@@ -1,0 +1,6 @@
+spring:
+  datasource:
+    username: root
+    password: root123
+  jpa:
+    show-sql: true
