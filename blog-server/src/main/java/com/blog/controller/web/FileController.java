@@ -4,14 +4,17 @@ import com.blog.exception.BusinessException;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.errors.MinioException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.servlet.http.HttpServletResponse;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 文件代理控制器。
@@ -25,37 +28,35 @@ public class FileController {
     private final MinioClient minioClient;
 
     @GetMapping("/api/web/files/{bucket}/**")
-    public void serveFile(
+    public ResponseEntity<InputStreamResource> serveFile(
             @PathVariable String bucket,
-            HttpServletResponse response) {
-        // 从 request path 中提取 objectName
-        String path = extractPath(bucket);
+            HttpServletRequest request) {
+        String objectName = extractPath(request, bucket);
 
-        try (InputStream is = minioClient.getObject(
-                GetObjectArgs.builder()
-                        .bucket(bucket)
-                        .object(path)
-                        .build());
-             OutputStream os = response.getOutputStream()) {
+        try {
+            var response = minioClient.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectName)
+                            .build());
 
-            String ext = path.contains(".") ? path.substring(path.lastIndexOf('.') + 1).toLowerCase() : "";
-            String contentType = switch (ext) {
-                case "jpg", "jpeg" -> "image/jpeg";
-                case "png" -> "image/png";
-                case "gif" -> "image/gif";
-                case "webp" -> "image/webp";
-                case "svg" -> "image/svg+xml";
-                case "bmp" -> "image/bmp";
-                default -> "application/octet-stream";
+            String ext = objectName.contains(".")
+                    ? objectName.substring(objectName.lastIndexOf('.') + 1).toLowerCase()
+                    : "";
+            MediaType mediaType = switch (ext) {
+                case "jpg", "jpeg" -> MediaType.IMAGE_JPEG;
+                case "png" -> MediaType.IMAGE_PNG;
+                case "gif" -> MediaType.IMAGE_GIF;
+                case "webp" -> MediaType.valueOf("image/webp");
+                case "svg" -> MediaType.valueOf("image/svg+xml");
+                case "bmp" -> MediaType.valueOf("image/bmp");
+                default -> MediaType.APPLICATION_OCTET_STREAM;
             };
-            response.setContentType(contentType);
-            response.setHeader("Cache-Control", "public, max-age=31536000, immutable");
 
-            byte[] buf = new byte[8192];
-            int len;
-            while ((len = is.read(buf)) != -1) {
-                os.write(buf, 0, len);
-            }
+            return ResponseEntity.ok()
+                    .contentType(mediaType)
+                    .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().immutable())
+                    .body(new InputStreamResource(response));
         } catch (MinioException e) {
             throw new BusinessException(404, "File not found");
         } catch (Exception e) {
@@ -63,12 +64,8 @@ public class FileController {
         }
     }
 
-    private String extractPath(String bucket) {
-        // 从当前请求中提取完整路径
-        var request = org.springframework.web.context.request.RequestContextHolder
-                .currentRequestAttributes();
-        var httpRequest = ((org.springframework.web.context.request.ServletRequestAttributes) request).getRequest();
-        String requestUri = httpRequest.getRequestURI();
+    private String extractPath(HttpServletRequest request, String bucket) {
+        String requestUri = request.getRequestURI();
         String prefix = "/api/web/files/" + bucket + "/";
         if (requestUri.startsWith(prefix)) {
             return requestUri.substring(prefix.length());

@@ -1,4 +1,4 @@
-import { computed, onMounted } from 'vue'
+import { computed, getCurrentInstance, onMounted } from 'vue'
 
 export interface UserInfo {
   id: number
@@ -22,9 +22,8 @@ export const useAuth = () => {
   const user = useState<UserInfo | null>('blog_user', () => null)
 
   // Defer ALL localStorage restoration to onMounted to avoid SSR hydration mismatch.
-  // During setup, token.value stays '' (matching server), so isLoggedIn is false
-  // and the template renders identically to the server output.
-  if (import.meta.client) {
+  // Only register when called from a component setup context (not middleware).
+  if (import.meta.client && getCurrentInstance()) {
     onMounted(() => {
       if (!token.value) {
         const saved = localStorage.getItem(TOKEN_KEY)

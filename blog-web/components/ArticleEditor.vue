@@ -73,9 +73,11 @@
       <div class="form-group">
         <label class="form-label">{{ t('editor.content') }}</label>
         <MdEditor
+          ref="mdEditorRef"
           v-model="form.content"
           :toolbars="toolbars"
           :language="mdLang"
+          :on-upload-img="handleUploadImg"
           :style="{ height: '500px' }"
         />
       </div>
@@ -92,9 +94,9 @@
 </template>
 
 <script setup lang="ts">
-import { MdEditor } from 'md-editor-v3'
-import 'md-editor-v3/lib/style.css'
-import type { ArticleDetailResponse, ArticleCreateRequest, CategoryDTO, TagDTO } from '~/composables/useBlogApi'
+import { MdEditor } from 'md-editor-v3';
+import 'md-editor-v3/lib/style.css';
+import type { ArticleCreateRequest, ArticleDetailResponse, CategoryDTO, TagDTO } from '~/composables/useBlogApi';
 
 const props = defineProps<{
   initialData?: ArticleDetailResponse
@@ -107,7 +109,7 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const { getCategories, getTags, uploadArticleImage } = useBlogApi()
+const { getCategories, getTags, uploadArticleImage, uploadContentImage } = useBlogApi()
 const { t, locale } = useI18n()
 const { alert } = useModal()
 
@@ -117,6 +119,7 @@ const categories = ref<CategoryDTO[]>([])
 const allTags = ref<TagDTO[]>([])
 
 const uploading = ref(false)
+const mdEditorRef = ref<InstanceType<typeof MdEditor>>()
 const fileInput = ref<HTMLInputElement | null>(null)
 
 function triggerUpload() {
@@ -136,6 +139,21 @@ async function handleFileChange(e: Event) {
   } finally {
     uploading.value = false
     target.value = ''
+  }
+}
+
+/** Markdown 编辑器工具栏上传图片（保存到本地 filesystem） */
+async function handleUploadImg(files: File[], callback: (urls: string[]) => void) {
+  try {
+    const urls = await Promise.all(files.map(f => uploadContentImage(f).then(r => r.url)))
+    const imgs = urls.map(url => `![](${url})`).join('\n')
+    // 先关加载让 CodeMirror 内部清理，再用 setTimeout 等状态稳定后更新内容
+    callback([])
+    setTimeout(() => {
+      form.content += '\n' + imgs + '\n'
+    }, 0)
+  } catch (err: any) {
+    alert({ message: err?.message || t('editor.uploadFailed'), type: 'error' })
   }
 }
 
