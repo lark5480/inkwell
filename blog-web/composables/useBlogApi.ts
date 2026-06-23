@@ -514,7 +514,35 @@ export const useBlogApi = () => {
       body: formData,
     })
     const result: ApiResult<{ url: string }> = await res.json()
-    return handleResponse(result)
+    const data = handleResponse(result)
+    // 如果返回的是相对路径（开发环境 useProxy=true），解析为后端的绝对 URL
+    // 因为 <img> 不受 CORS 限制，可以直接从后端加载
+    if (import.meta.client && data.url.startsWith('/')) {
+      const base = apiBase.replace(/\/api$/, '')
+      data.url = base + data.url
+    }
+    return data
+  }
+
+  /** Markdown 正文插图：保存到本地文件系统（不走 MinIO），通过 /uploads/ 提供访问 */
+  async function uploadContentImage(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const token = import.meta.client ? localStorage.getItem('blog_token') : null
+    const headers: Record<string, string> = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    const res = await fetch(`${apiBase}/web/user/articles/upload-image-content`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+    const result: ApiResult<{ url: string }> = await res.json()
+    const data = handleResponse(result)
+    if (import.meta.client && data.url.startsWith('/')) {
+      const base = apiBase.replace(/\/api$/, '')
+      data.url = base + data.url
+    }
+    return data
   }
 
   // User profile
@@ -728,6 +756,7 @@ export const useBlogApi = () => {
     getUserProfile,
     getUserArticles,
     uploadArticleImage,
+    uploadContentImage,
     uploadAvatar,
     changePassword,
     // Follow

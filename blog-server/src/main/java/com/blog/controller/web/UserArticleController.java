@@ -5,6 +5,7 @@ import com.blog.dto.*;
 import com.blog.service.ArticleService;
 import com.blog.service.UserArticleService;
 import com.blog.storage.FileStorageService;
+import com.blog.storage.LocalFileStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -68,6 +69,13 @@ public class UserArticleController {
     @PostMapping("/articles/upload-image")
     public Result<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
         String url = fileStorageService.uploadImage(file);
+        return Result.success(Map.of("url", url));
+    }
+
+    @PostMapping("/articles/upload-image-content")
+    public Result<Map<String, String>> uploadImageContent(@RequestParam("file") MultipartFile file) {
+        LocalFileStorageService localStorage = new LocalFileStorageService();
+        String url = localStorage.uploadImage(file);
         return Result.success(Map.of("url", url));
     }
 

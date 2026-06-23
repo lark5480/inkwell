@@ -15,8 +15,8 @@ import com.blog.service.MarkdownRenderer;
 import com.blog.service.UserArticleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Caching;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -40,10 +40,10 @@ public class UserArticleServiceImpl implements UserArticleService {
     private final CategoryRepository categoryRepository;
     private final TagRepository tagRepository;
     private final MarkdownRenderer markdownRenderer;
+    private final CacheManager cacheManager;
 
     @Override
     @Transactional
-    @CacheEvict(value = {CacheNames.ARTICLE_LIST, CacheNames.ARTICLE_ARCHIVE, CacheNames.FEATURED, CacheNames.SITE_INFO}, allEntries = true)
     public Long createArticle(Long userId, ArticleCreateRequest request) {
         log.info("用户创建文章 title={} userId={}", request.title(), userId);
 
@@ -89,22 +89,14 @@ public class UserArticleServiceImpl implements UserArticleService {
             article.setPublishedAt(LocalDateTime.now());
         }
 
-        articleRepository.save(article);
+        articleRepository.saveAndFlush(article);
+        clearListCaches();
         log.info("用户文章创建成功 id={} userId={}", article.getId(), userId);
         return article.getId();
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = CacheNames.ARTICLE_HTML, key = "#articleId"),
-            @CacheEvict(value = CacheNames.ARTICLE_DETAIL, key = "#articleId"),
-            @CacheEvict(value = CacheNames.ARTICLE_PREV_NEXT, allEntries = true),
-            @CacheEvict(value = CacheNames.ARTICLE_LIST, allEntries = true),
-            @CacheEvict(value = CacheNames.ARTICLE_ARCHIVE, allEntries = true),
-            @CacheEvict(value = CacheNames.FEATURED, allEntries = true),
-            @CacheEvict(value = CacheNames.SITE_INFO, allEntries = true)
-    })
     public void updateArticle(Long userId, Long articleId, ArticleUpdateRequest request) {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new BusinessException(404, "Article not found"));
@@ -150,21 +142,13 @@ public class UserArticleServiceImpl implements UserArticleService {
             article.setTags(tags);
         }
 
-        articleRepository.save(article);
+        articleRepository.saveAndFlush(article);
+        clearArticleCaches(articleId);
         log.info("用户文章更新完成 id={} userId={}", articleId, userId);
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = CacheNames.ARTICLE_HTML, key = "#articleId"),
-            @CacheEvict(value = CacheNames.ARTICLE_DETAIL, key = "#articleId"),
-            @CacheEvict(value = CacheNames.ARTICLE_PREV_NEXT, allEntries = true),
-            @CacheEvict(value = CacheNames.ARTICLE_LIST, allEntries = true),
-            @CacheEvict(value = CacheNames.ARTICLE_ARCHIVE, allEntries = true),
-            @CacheEvict(value = CacheNames.FEATURED, allEntries = true),
-            @CacheEvict(value = CacheNames.SITE_INFO, allEntries = true)
-    })
     public void deleteArticle(Long userId, Long articleId) {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new BusinessException(404, "Article not found"));
@@ -174,7 +158,8 @@ public class UserArticleServiceImpl implements UserArticleService {
         }
 
         article.setIsDeleted(true);
-        articleRepository.save(article);
+        articleRepository.saveAndFlush(article);
+        clearArticleCaches(articleId);
         log.info("用户文章删除 id={} userId={}", articleId, userId);
     }
 
@@ -216,6 +201,45 @@ public class UserArticleServiceImpl implements UserArticleService {
                 .collect(Collectors.toList());
 
         return new PageDTO<>(records, articlePage.getTotalElements(), page, pageSize);
+    }
+
+    // ========== Cache Helpers ==========
+
+    /**
+     * 手动清除列表类缓存（不依赖 @CacheEvict 的 AOP 事务边界问题）。
+     * 在 save 之后、事务提交之前调用，确保数据库已写入，下游读取能拿到最新数据。
+     */
+    private void clearListCaches() {
+        clearCache(CacheNames.ARTICLE_LIST);
+        clearCache(CacheNames.ARTICLE_ARCHIVE);
+        clearCache(CacheNames.FEATURED);
+        clearCache(CacheNames.SITE_INFO);
+    }
+
+    /**
+     * 手动清除文章详情 + 列表类缓存。
+     */
+    private void clearArticleCaches(Long articleId) {
+        evictCache(CacheNames.ARTICLE_HTML, articleId);
+        evictCache(CacheNames.ARTICLE_DETAIL, articleId);
+        clearCache(CacheNames.ARTICLE_PREV_NEXT);
+        clearListCaches();
+    }
+
+    private void clearCache(String name) {
+        Cache cache = cacheManager.getCache(name);
+        if (cache != null) {
+            cache.clear();
+            log.debug("缓存已清除: {}", name);
+        }
+    }
+
+    private void evictCache(String name, Object key) {
+        Cache cache = cacheManager.getCache(name);
+        if (cache != null) {
+            cache.evict(key);
+            log.debug("缓存已逐出: {} key={}", name, key);
+        }
     }
 
     // ========== Helper Methods ==========
