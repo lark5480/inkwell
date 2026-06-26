@@ -5,6 +5,8 @@
 -- Engine: InnoDB for all tables
 -- ============================================================================
 
+SET NAMES utf8mb4;
+
 -- ---------------------------------------------------------------------------
 -- Drop tables in reverse dependency order (respect FK constraints)
 -- ---------------------------------------------------------------------------
@@ -37,6 +39,8 @@ CREATE TABLE `users` (
     `nickname`    VARCHAR(50)  DEFAULT NULL             COMMENT '昵称',
     `avatar`      VARCHAR(500) DEFAULT NULL             COMMENT '头像URL',
     `bio`         TEXT         DEFAULT NULL             COMMENT '个人简介',
+    `follower_count` INT      NOT NULL DEFAULT 0        COMMENT '粉丝数',
+    `following_count` INT     NOT NULL DEFAULT 0        COMMENT '关注数',
     `role`        VARCHAR(20)  DEFAULT 'AUTHOR'         COMMENT '角色: ADMIN / AUTHOR',
     `status`      TINYINT      DEFAULT 1                COMMENT '状态: 0=禁用, 1=正常',
     `create_time` DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -283,10 +287,6 @@ CREATE TABLE IF NOT EXISTS `messages` (
     KEY `idx_msg_to_read` (`to_user_id`, `is_read`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. User 表新增关注计数字段
-ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `follower_count` INT NOT NULL DEFAULT 0 COMMENT '粉丝数' AFTER `bio`;
-ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `following_count` INT NOT NULL DEFAULT 0 COMMENT '关注数' AFTER `follower_count`;
-
 
 -- ---------------------------------------------------------------------------
 -- Foreign Key Constraints
@@ -351,6 +351,10 @@ CREATE INDEX `idx_visit_logs_article_id`     ON `visit_logs` (`article_id`);
 -- Admin user (password: admin123, BCrypt cost 10)
 INSERT IGNORE INTO `users` (`username`, `password`, `role`, `nickname`, `status`)
 VALUES ('admin', '$2b$10$mMIb00Ixd7f9GRnIcPnoyOw7IVf5FV/1SXpmh22biwRW1k9KU70QG', 'ADMIN', 'Admin', 1);
+
+-- Switch root auth to mysql_native_password so DB clients (DBeaver, DataGrip, etc.) can connect without allowPublicKeyRetrieval
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'root123';
+FLUSH PRIVILEGES;
 
 -- Categories
 INSERT IGNORE INTO `categories` (`id`, `name`, `slug`, `description`, `sort`) VALUES

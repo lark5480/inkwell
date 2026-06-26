@@ -23,7 +23,6 @@ import com.blog.exception.BusinessException;
 import com.blog.repository.ArticleRepository;
 import com.blog.repository.CommentRepository;
 import com.blog.repository.CommentVoteRepository;
-import com.blog.repository.UserBlockRepository;
 import com.blog.service.CommentService;
 import com.blog.service.NotificationService;
 import com.blog.util.SensitiveWordFilter;
@@ -46,22 +45,19 @@ public class CommentServiceImpl implements CommentService {
     private final SensitiveWordFilter sensitiveWordFilter;
     private final NotificationService notificationService;
     private final CommentVoteRepository commentVoteRepository;
-    private final UserBlockRepository userBlockRepository;
 
     public CommentServiceImpl(CommentRepository commentRepository,
                               ArticleRepository articleRepository,
                               EntityManager entityManager,
                               SensitiveWordFilter sensitiveWordFilter,
                               NotificationService notificationService,
-                              CommentVoteRepository commentVoteRepository,
-                              UserBlockRepository userBlockRepository) {
+                              CommentVoteRepository commentVoteRepository) {
         this.commentRepository = commentRepository;
         this.articleRepository = articleRepository;
         this.entityManager = entityManager;
         this.sensitiveWordFilter = sensitiveWordFilter;
         this.notificationService = notificationService;
         this.commentVoteRepository = commentVoteRepository;
-        this.userBlockRepository = userBlockRepository;
     }
 
     // ========== Web Methods ==========

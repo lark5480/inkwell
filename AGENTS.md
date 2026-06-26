@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Instructions for Claude Code when working on this project.
+Instructions for AI agents (Claude Code, Codex, etc.) when working on this project.
 
 ## Commands
 
