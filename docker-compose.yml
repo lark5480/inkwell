@@ -1,4 +1,10 @@
-version: "3.8"
+# Inkwell - 中间件 + 应用容器编排
+#
+# 仅启动中间件（后端/前端在本地 IDE 运行）：docker compose up -d mysql redis minio
+# 完全部署：docker compose up -d
+# 查看日志：docker compose logs -f
+# 停止：docker compose down
+# 清理（删除数据卷）：docker compose down -v
 
 services:
   mysql:
@@ -6,11 +12,12 @@ services:
     container_name: blog-mysql
     restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123}
       - MYSQL_DATABASE=blog
     volumes:
       - mysql_data:/var/lib/mysql
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
     ports:
       - "3306:3306"
     networks:
@@ -62,7 +69,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:mysql://blog-mysql:3306/blog?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123}
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
     networks:

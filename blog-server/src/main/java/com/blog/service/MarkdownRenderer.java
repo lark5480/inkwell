@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 import java.util.Arrays;
 
 /**
- * Markdown to HTML renderer service.
- * Uses flexmark to render Markdown content to HTML.
+ * Markdown 转 HTML 渲染服务。
+ * 基于 flexmark 将 Markdown 内容渲染为 HTML。
  * 渲染结果按 articleId 缓存到 Redis，文章更新时由 ArticleServiceImpl 主动失效。
  */
 @Service
@@ -48,10 +48,10 @@ public class MarkdownRenderer {
     }
 
     /**
-     * Render Markdown text to HTML.
+     * 将 Markdown 文本渲染为 HTML。
      *
-     * @param markdown the Markdown source text
-     * @return rendered HTML string
+     * @param markdown Markdown 原文
+     * @return 渲染后的 HTML 字符串
      */
     public String render(String markdown) {
         if (markdown == null || markdown.isEmpty()) {

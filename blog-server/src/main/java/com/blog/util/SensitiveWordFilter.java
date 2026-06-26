@@ -12,14 +12,14 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Sensitive word filter for comment auto-moderation.
+ * 敏感词过滤器，用于评论自动审核。
  * <p>
- * Loads comma-separated sensitive words from the {@code sensitive_words} setting.
- * Words are cached in-memory and refreshed at most once every 5 minutes
- * to avoid hitting the database on every comment.
+ * 从 {@code sensitive_words} 配置项中加载由逗号分隔的敏感词列表。
+ * 编译后的正则表达式缓存在内存中，每 5 分钟刷新一次，
+ * 避免每次评论都查询数据库。
  * </p>
  * <p>
- * Matching is case-insensitive and covers both subject and object fields.
+ * 匹配不区分大小写，同时覆盖内容和作者字段。
  * </p>
  */
 @Component
@@ -40,10 +40,10 @@ public class SensitiveWordFilter {
     }
 
     /**
-     * Check if the given text contains any sensitive words.
+     * 检查文本是否包含敏感词。
      *
-     * @param text the text to check (content, author name, etc.)
-     * @return true if any sensitive word is found
+     * @param text 待检查的文本（内容、作者名等）
+     * @return 包含敏感词返回 true
      */
     public boolean containsSensitiveWords(String text) {
         if (text == null || text.isBlank()) {
@@ -60,8 +60,8 @@ public class SensitiveWordFilter {
     }
 
     /**
-     * Force a refresh of the cached sensitive word patterns.
-     * Called after the admin updates the sensitive_words setting.
+     * 强制刷新敏感词缓存。
+     * 管理员修改敏感词配置后调用，使新配置即时生效。
      */
     public void refresh() {
         lastRefresh = LocalDateTime.MIN;

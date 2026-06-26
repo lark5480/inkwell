@@ -1,23 +1,23 @@
 package com.blog.service.impl;
 
-import com.blog.dto.BlockedUserResponse;
-import com.blog.entity.User;
-import com.blog.entity.UserBlock;
-import com.blog.exception.BusinessException;
-import com.blog.repository.UserBlockRepository;
-import com.blog.repository.UserRepository;
-import com.blog.service.UserBlockService;
+import java.util.Collections;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
+import com.blog.dto.BlockedUserResponse;
+import com.blog.entity.UserBlock;
+import com.blog.exception.BusinessException;
+import com.blog.repository.UserBlockRepository;
+import com.blog.repository.UserRepository;
+import com.blog.service.UserBlockService;
 
 @Service
 public class UserBlockServiceImpl implements UserBlockService {
-
+    
     private static final Logger log = LoggerFactory.getLogger(UserBlockServiceImpl.class);
 
     private final UserBlockRepository userBlockRepository;
