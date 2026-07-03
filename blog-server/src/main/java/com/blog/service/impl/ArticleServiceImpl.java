@@ -1,7 +1,45 @@
 package com.blog.service.impl;
 
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.blog.common.CacheNames;
-import com.blog.dto.*;
+import com.blog.dto.ArchiveArticle;
+import com.blog.dto.ArchiveItem;
+import com.blog.dto.ArticleAdminResponse;
+import com.blog.dto.ArticleCreateRequest;
+import com.blog.dto.ArticleDetailResponse;
+import com.blog.dto.ArticleUpdateRequest;
+import com.blog.dto.ArticleWebResponse;
+import com.blog.dto.HistoryItemResponse;
+import com.blog.dto.LikeToggleResponse;
+import com.blog.dto.PageDTO;
+import com.blog.dto.PrevNextDTO;
+import com.blog.dto.PrevNextItem;
+import com.blog.dto.TagDTO;
 import com.blog.entity.Article;
 import com.blog.entity.ArticleLike;
 import com.blog.entity.ArticleViewHistory;
@@ -17,27 +55,16 @@ import com.blog.repository.UserRepository;
 import com.blog.service.ArticleService;
 import com.blog.service.MarkdownRenderer;
 import com.blog.service.NotificationService;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
-import jakarta.persistence.criteria.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.stream.Collectors;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 @Service
 public class ArticleServiceImpl implements ArticleService {
@@ -445,11 +472,28 @@ public class ArticleServiceImpl implements ArticleService {
             popularQuery.where(predicates.toArray(new Predicate[0]));
             popularQuery.distinct(true);
             // 热度排序：按 viewCount 降序为主，likeCount、commentCount 为辅
-            popularQuery.orderBy(
-                    cb.desc(popularRoot.get("viewCount")),
-                    cb.desc(popularRoot.get("likeCount")),
-                    cb.desc(popularRoot.get("commentCount"))
+            // popularQuery.orderBy(
+            //         cb.desc(popularRoot.get("viewCount")),
+            //         cb.desc(popularRoot.get("likeCount")),
+            //         cb.desc(popularRoot.get("commentCount"))
+            // );
+
+            // 热度排序：viewCount + likeCount * 3 + commentCount * 5
+            // 写法一
+            // Expression<Integer> score = cb.prod(popularRoot.get("likeCount"), cb.literal(3));
+            // score = cb.sum(score, cb.prod(popularRoot.get("commentCount"), cb.literal(5)));
+            // score = cb.sum(popularRoot.get("viewCount"), score);
+            // popularQuery.orderBy(cb.desc(score));
+            
+            // 写法二
+            Expression<Integer> score = cb.sum(
+                popularRoot.get("viewCount"),
+                cb.sum(
+                    cb.prod(popularRoot.get("likeCount"), cb.literal(3)),
+                    cb.prod(popularRoot.get("commentCount"), cb.literal(5))
+                )
             );
+            popularQuery.orderBy(cb.desc(score));
 
             List<Article> popular = entityManager.createQuery(popularQuery)
                     .setMaxResults(6 - result.size())

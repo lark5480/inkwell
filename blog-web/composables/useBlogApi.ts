@@ -567,7 +567,15 @@ export const useBlogApi = () => {
       method: 'POST',
       body: formData,
       headers: getAuthHeaders(),
-    }).then(handleResponse)
+    }).then(handleResponse).then(url => {
+      // 如果返回的是相对路径（开发环境 useProxy=true），解析为后端的绝对 URL
+      // 因为 <img> 不受 CORS 限制，可以直接从后端加载
+      if (import.meta.client && url.startsWith('/')) {
+        const base = apiBase.replace(/\/api$/, '')
+        url = base + url
+      }
+      return url
+    })
   }
 
   function changePassword(oldPassword: string, newPassword: string) {

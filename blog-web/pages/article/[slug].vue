@@ -86,7 +86,7 @@
             <div v-if="article.authorId" class="author-info">
               <div class="author-row">
                 <NuxtLink :to="`/user/${article.authorId}`" class="author-link">
-                  <img v-if="article.authorAvatar" :src="article.authorAvatar" :alt="article.authorName || ''" class="author-avatar" />
+                  <img v-if="authorAvatarUrl" :src="authorAvatarUrl" :alt="article.authorName || ''" class="author-avatar" />
                   <div v-else class="author-avatar-placeholder">{{ (article.authorName || '?').charAt(0).toUpperCase() }}</div>
                   <div class="author-text">
                     <span class="author-name">{{ article.authorName }}</span>
@@ -177,6 +177,7 @@ const slug = route.params.slug as string
 const { t } = useI18n()
 const { getArticle, getPrevNext, likeArticle, getUserProfile, toggleFollow, getFollowStatus } = useBlogApi()
 const { isLoggedIn, currentUser, token } = useAuth()
+import { resolveImageUrl } from '~/composables/useImageUrl'
 const { resolve } = useMedia()
 
 const article = ref<ArticleDetailResponse | null>(null)
@@ -197,6 +198,7 @@ const isOwnArticle = computed(() =>
 )
 
 const coverUrl = computed(() => resolve(article.value?.coverImage))
+const authorAvatarUrl = computed(() => resolveImageUrl(article.value?.authorAvatar))
 
 // Like state
 const likeCount = ref(0)

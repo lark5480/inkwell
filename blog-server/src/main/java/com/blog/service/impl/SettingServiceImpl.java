@@ -10,6 +10,7 @@ import com.blog.repository.SettingRepository;
 import com.blog.repository.TagRepository;
 import com.blog.service.MarkdownRenderer;
 import com.blog.service.SettingService;
+import com.blog.util.SensitiveWordFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -31,17 +32,20 @@ public class SettingServiceImpl implements SettingService {
     private final CategoryRepository categoryRepository;
     private final TagRepository tagRepository;
     private final MarkdownRenderer markdownRenderer;
+    private final SensitiveWordFilter sensitiveWordFilter;
 
     public SettingServiceImpl(SettingRepository settingRepository,
                               ArticleRepository articleRepository,
                               CategoryRepository categoryRepository,
                               TagRepository tagRepository,
-                              MarkdownRenderer markdownRenderer) {
+                              MarkdownRenderer markdownRenderer,
+                              SensitiveWordFilter sensitiveWordFilter) {
         this.settingRepository = settingRepository;
         this.articleRepository = articleRepository;
         this.categoryRepository = categoryRepository;
         this.tagRepository = tagRepository;
         this.markdownRenderer = markdownRenderer;
+        this.sensitiveWordFilter = sensitiveWordFilter;
     }
 
     /**
@@ -77,6 +81,10 @@ public class SettingServiceImpl implements SettingService {
                 setting.setDescription(dto.description());
             }
             settingRepository.save(setting);
+        }
+        /* 如果更新了敏感词配置，立即刷新过滤器缓存 */
+        if (settings.stream().anyMatch(dto -> "sensitive_words".equals(dto.settingKey()))) {
+            sensitiveWordFilter.refresh();
         }
         log.info("配置更新完成");
     }

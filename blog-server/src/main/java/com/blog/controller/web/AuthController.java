@@ -19,6 +19,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 用户认证控制器
+ */
 @RestController("webAuthController")
 @RequestMapping("/api/web/auth")
 @RequiredArgsConstructor
@@ -29,6 +32,12 @@ public class AuthController {
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
 
+    /**
+     * 用户注册
+     *
+     * @param request 注册请求（用户名、密码、邮箱、昵称）
+     * @return 注册成功返回 Token 和用户信息
+     */
     @PostMapping("/register")
     public Result<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
         if (userRepository.findByUsername(request.username()).isPresent()) {
@@ -51,6 +60,12 @@ public class AuthController {
         return Result.success(new LoginResponse(token, userInfo));
     }
 
+    /**
+     * 用户登录
+     *
+     * @param request 登录请求（用户名、密码）
+     * @return 登录成功返回 Token 和用户信息
+     */
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         try {
@@ -70,6 +85,11 @@ public class AuthController {
         return Result.success(new LoginResponse(token, userInfo));
     }
 
+    /**
+     * 获取当前登录用户信息
+     *
+     * @return 当前用户信息
+     */
     @GetMapping("/me")
     public Result<UserInfo> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

@@ -31,6 +31,9 @@ import java.util.List;
 @RestController("webCommentController")
 @RequestMapping("/api/web")
 @RequiredArgsConstructor
+/**
+ * 文章评论控制器
+ */
 public class CommentController {
 
     private final CommentService commentService;
@@ -38,6 +41,12 @@ public class CommentController {
     private final CommentReportService commentReportService;
     private final UserBlockService userBlockService;
 
+    /**
+     * 获取文章评论列表
+     *
+     * @param articleId 文章ID
+     * @return 评论列表
+     */
     @GetMapping("/comments")
     public Result<List<CommentResponse>> getComments(@RequestParam Long articleId) {
         Long currentUserId = getCurrentUserId();
@@ -48,6 +57,11 @@ public class CommentController {
         return Result.success(list);
     }
 
+    /**
+     * 获取当前用户屏蔽的用户列表
+     *
+     * @return 屏蔽用户列表
+     */
     @GetMapping("/user/blocks")
     public Result<List<BlockedUserResponse>> getBlockedUsers() {
         Long userId = requireCurrentUserId();
@@ -55,6 +69,13 @@ public class CommentController {
         return Result.success(list);
     }
 
+    /**
+     * 创建评论
+     *
+     * @param request         评论创建请求
+     * @param servletRequest  HTTP 请求（用于获取 IP 和 User-Agent）
+     * @return 评论 ID
+     */
     @PostMapping("/comments")
     public Result<Long> create(@Valid @RequestBody CommentCreateRequest request,
                                HttpServletRequest servletRequest) {
@@ -65,6 +86,12 @@ public class CommentController {
         return Result.success(id);
     }
 
+    /**
+     * 删除自己的评论
+     *
+     * @param id 评论 ID
+     * @return 无
+     */
     @DeleteMapping("/comments/{id}")
     public Result<Void> deleteOwn(@PathVariable Long id) {
         Long userId = requireCurrentUserId();
@@ -72,6 +99,13 @@ public class CommentController {
         return Result.success();
     }
 
+    /**
+     * 评论投票（点赞/点踩）
+     *
+     * @param id      评论 ID
+     * @param request 投票请求
+     * @return 投票结果
+     */
     @PostMapping("/comments/{id}/vote")
     public Result<VoteResult> vote(@PathVariable Long id, @RequestBody VoteRequest request) {
         Long userId = requireCurrentUserId();
@@ -79,6 +113,13 @@ public class CommentController {
         return Result.success(result);
     }
 
+    /**
+     * 举报评论
+     *
+     * @param id      评论 ID
+     * @param request 举报请求
+     * @return 无
+     */
     @PostMapping("/comments/{id}/report")
     public Result<Void> report(@PathVariable Long id, @RequestBody ReportRequest request) {
         Long userId = requireCurrentUserId();
@@ -86,6 +127,12 @@ public class CommentController {
         return Result.success();
     }
 
+    /**
+     * 屏蔽用户
+     *
+     * @param blockedId 被屏蔽的用户 ID
+     * @return 无
+     */
     @PostMapping("/users/{id}/block")
     public Result<Void> block(@PathVariable("id") Long blockedId) {
         Long blockerId = requireCurrentUserId();
@@ -93,6 +140,12 @@ public class CommentController {
         return Result.success();
     }
 
+    /**
+     * 取消屏蔽用户
+     *
+     * @param blockedId 被屏蔽的用户 ID
+     * @return 无
+     */
     @DeleteMapping("/users/{id}/block")
     public Result<Void> unblock(@PathVariable("id") Long blockedId) {
         Long blockerId = requireCurrentUserId();
