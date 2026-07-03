@@ -497,7 +497,6 @@ INSERT IGNORE INTO `links` (`name`, `url`, `avatar`, `description`, `sort`) VALU
 ('Spring',       'https://spring.io',                          NULL, 'Java 企业级应用框架',                       2),
 ('Nuxt.js',      'https://nuxt.com',                           NULL, 'Vue 的元框架：SSR、SSG 一应俱全',           3),
 ('Vite',         'https://vitejs.dev',                         NULL, '下一代前端构建工具',                         4),
-('MDN Web Docs', 'https://developer.mozilla.org/zh-CN/',       NULL, 'Web 技术权威文档',                          5),
 ('GitHub',       'https://github.com',                         NULL, '全球最大的代码托管平台',                     6),
 ('Stack Overflow', 'https://stackoverflow.com',                NULL, '程序员问答社区',                             7),
 ('Rust 语言',     'https://www.rust-lang.org/zh-CN',            NULL, '一门赋予每个人构建可靠高效软件能力的语言',    8);

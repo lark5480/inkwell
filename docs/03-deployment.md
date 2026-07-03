@@ -13,8 +13,17 @@
 # 克隆项目
 git clone <repo-url> && cd inkwell
 
-# 启动全部服务
+# 方式一：仅启动中间件（推荐，应用在本地 IDE 开发运行）
+docker compose up -d mysql redis minio
+
+# 方式二：完全部署（先单独构建镜像，避免 Docker Compose build bug）
+docker compose build blog-server blog-web blog-admin
 docker compose up -d
+```
+
+> **注意**：Docker Compose v2 某些版本在构建 Java/Maven 镜像时存在 panic bug（`build_bake.go:312`），直接 `docker compose up -d` 可能失败。方式一不受影响，方式二先 build 再 up 也可绕过。
+>
+> **数据库初始化**：MySQL 容器首次启动时自动执行 `sql/init.sql`，无需手动导入。如果要重置数据库，删除数据卷重新创建即可：`docker compose down -v && docker compose up -d mysql`。
 
 # 查看启动状态
 docker compose ps
@@ -69,6 +78,7 @@ MYSQL_ROOT_PASSWORD=your_secure_password
 修改 `nginx/nginx.conf` 中的 `server_name` 为实际域名，然后：
 
 ```bash
+docker compose build  # 先构建所有镜像，避免 Compose build bug
 docker compose up -d
 ```
 
