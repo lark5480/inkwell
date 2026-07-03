@@ -15,6 +15,9 @@ import com.blog.service.SettingService;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 系统设置控制器
+ */
 @RestController
 @RequestMapping("/api/admin/settings")
 @RequiredArgsConstructor
@@ -22,12 +25,23 @@ public class SettingController {
     
     private final SettingService settingService;
 
+    /**
+     * 获取所有系统设置
+     *
+     * @return 系统设置列表
+     */
     @GetMapping
     public Result<List<SettingDTO>> getAll() {
         List<SettingDTO> list = settingService.getAllSettings();
         return Result.success(list);
     }
 
+    /**
+     * 批量更新系统设置
+     *
+     * @param settings 设置键值对集合
+     * @return 无返回数据
+     */
     @PutMapping
     public Result<Void> updateAll(@RequestBody Map<String, String> settings) {
         List<SettingDTO> list = settings.entrySet().stream()

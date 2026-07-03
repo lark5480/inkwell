@@ -41,7 +41,7 @@
         >
           <img
             v-if="link.avatar"
-            :src="link.avatar"
+            :src="link.avatar ? resolveImageUrl(link.avatar) : undefined"
             :alt="link.name"
             class="link-avatar"
             loading="lazy"
@@ -59,6 +59,8 @@
 
 <script setup lang="ts">
 import type { LinkDTO } from '~/composables/useBlogApi'
+
+import { resolveImageUrl } from '~/composables/useImageUrl'
 
 const { t } = useI18n()
 

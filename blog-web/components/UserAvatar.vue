@@ -7,8 +7,8 @@
     :style="{ width: size + 'px', height: size + 'px' }"
   >
     <img
-      v-if="user.avatar"
-      :src="user.avatar"
+      v-if="avatarUrl"
+      :src="avatarUrl"
       :alt="user.nickname || ''"
       class="avatar-img"
       @error="onImgError"
@@ -34,6 +34,18 @@ const props = withDefaults(defineProps<{
 })
 
 const imgFailed = ref(false)
+
+// 解析头像 URL：相对路径（/ 开头）补全为后端绝对 URL，支持局域网 IP 访问
+const avatarUrl = computed(() => {
+  if (!props.user.avatar) return null
+  if (props.user.avatar.startsWith('/')) {
+    const base = import.meta.client
+      ? `http://${location.hostname}:8080`
+      : 'http://localhost:8080'
+    return base + props.user.avatar
+  }
+  return props.user.avatar
+})
 
 const initial = computed(() => {
   const name = props.user.nickname || props.user.id?.toString() || '?'

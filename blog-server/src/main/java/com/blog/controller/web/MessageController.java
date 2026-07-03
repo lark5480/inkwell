@@ -17,10 +17,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/web/messages")
 @RequiredArgsConstructor
+/** 私信消息控制器 */
 public class MessageController {
 
     private final MessageService messageService;
 
+    /** 获取当前用户的会话列表 */
     @GetMapping("/conversations")
     public Result<List<ConversationResponse>> getConversations() {
         Long userId = getCurrentUserId();
@@ -28,6 +30,7 @@ public class MessageController {
         return Result.success(list);
     }
 
+    /** 获取与指定用户的聊天消息（分页） */
     @GetMapping
     public Result<PageDTO<MessageResponse>> getMessages(
             @RequestParam Long userId,
@@ -38,6 +41,7 @@ public class MessageController {
         return Result.success(result);
     }
 
+    /** 发送私信消息 */
     @PostMapping
     public Result<MessageResponse> send(@Valid @RequestBody SendMessageRequest request) {
         Long fromUserId = getCurrentUserId();
@@ -45,6 +49,7 @@ public class MessageController {
         return Result.success(msg);
     }
 
+    /** 标记单条消息为已读 */
     @PutMapping("/{id}/read")
     public Result<Void> markRead(@PathVariable Long id) {
         Long userId = getCurrentUserId();
@@ -52,6 +57,7 @@ public class MessageController {
         return Result.success();
     }
 
+    /** 标记与指定用户的所有消息为已读 */
     @PutMapping("/read-all")
     public Result<Void> markAllRead(@RequestParam Long userId) {
         Long currentUserId = getCurrentUserId();
@@ -59,6 +65,7 @@ public class MessageController {
         return Result.success();
     }
 
+    /** 获取当前用户未读消息总数 */
     @GetMapping("/unread-count")
     public Result<Long> getUnreadCount() {
         Long userId = getCurrentUserId();

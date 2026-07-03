@@ -115,6 +115,7 @@ export default {
     blocked: '黑名单',
     noBlocked: '暂无已拉黑的用户',
     unblock: '取消拉黑',
+    sendMessage: '发私信',
   },
   notification: {
     commented: '评论了',

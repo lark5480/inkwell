@@ -27,6 +27,9 @@ public class FileController {
 
     private final MinioClient minioClient;
 
+    /**
+     * 代理获取 MinIO 中的文件
+     */
     @GetMapping("/api/web/files/{bucket}/**")
     public ResponseEntity<InputStreamResource> serveFile(
             @PathVariable String bucket,

@@ -1,12 +1,15 @@
 package com.blog.repository;
 
-import com.blog.entity.ArticleViewHistory;
+import java.time.LocalDateTime;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import com.blog.entity.ArticleViewHistory;
 
 @Repository
 public interface ArticleViewHistoryRepository extends JpaRepository<ArticleViewHistory, Long> {
@@ -21,4 +24,6 @@ public interface ArticleViewHistoryRepository extends JpaRepository<ArticleViewH
                                                      Pageable pageable);
 
     void deleteByIdAndUserId(Long id, Long userId);
+
+    int deleteByCreateTimeBefore(LocalDateTime cutoff);
 }

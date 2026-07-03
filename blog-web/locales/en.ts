@@ -115,6 +115,7 @@ export default {
     blocked: 'Blocked',
     noBlocked: 'No blocked users',
     unblock: 'Unblock',
+    sendMessage: 'Message',
   },
   notification: {
     commented: 'commented on',

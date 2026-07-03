@@ -52,7 +52,7 @@
             </NuxtLink>
             <div class="nav-user-menu" @click.stop>
               <button class="nav-user-btn" @click="userMenuOpen = !userMenuOpen">
-                <img v-if="user?.avatar" :src="user.avatar" :alt="user.nickname" class="nav-user-avatar" />
+                <img v-if="navAvatarUrl" :src="navAvatarUrl" :alt="user.nickname" class="nav-user-avatar" />
                 <div v-else class="nav-user-avatar-placeholder">{{ (user?.nickname || user?.username || '?').charAt(0).toUpperCase() }}</div>
               </button>
               <div v-if="userMenuOpen" class="nav-dropdown">
@@ -94,6 +94,18 @@ const mobileMenuOpen = ref(false)
 const userMenuOpen = ref(false)
 // Shared unread count — notifications page can decrement directly
 const unreadCount = useState<number>('notif_unread_count', () => 0)
+
+// 导航栏头像 URL：相对路径补全为后端绝对 URL
+const navAvatarUrl = computed(() => {
+  if (!user.value?.avatar) return null
+  if (user.value.avatar.startsWith('/')) {
+    const base = import.meta.client
+      ? `http://${location.hostname}:8080`
+      : 'http://localhost:8080'
+    return base + user.value.avatar
+  }
+  return user.value.avatar
+})
 
 function handleLogout() {
   userMenuOpen.value = false

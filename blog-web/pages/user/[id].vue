@@ -9,7 +9,7 @@
       <div class="profile-section">
         <div class="profile-card">
           <div class="profile-avatar">
-            <img v-if="profile.avatar" :src="profile.avatar" :alt="profile.nickname" />
+            <img v-if="profileAvatarUrl" :src="profileAvatarUrl" :alt="profile.nickname" />
             <div v-else class="avatar-placeholder">{{ (profile.nickname || '?').charAt(0).toUpperCase() }}</div>
           </div>
           <div class="profile-info">
@@ -179,6 +179,9 @@
                   <span v-if="f.bio" class="user-item-bio">{{ f.bio }}</span>
                 </div>
               </NuxtLink>
+              <div v-if="isOwner" class="user-item-actions">
+                <NuxtLink :to="`/messages/${f.userId}`" class="follow-btn">{{ t('user.sendMessage') }}</NuxtLink>
+              </div>
             </div>
           </div>
           <div v-if="followersTotalPages > 1" class="pagination">
@@ -202,6 +205,7 @@
                 </div>
               </NuxtLink>
               <div v-if="isOwner" class="user-item-actions">
+                <NuxtLink :to="`/messages/${f.userId}`" class="follow-btn">{{ t('user.sendMessage') }}</NuxtLink>
                 <button class="follow-btn followed" @click="handleUnfollow(f.userId)" :disabled="followLoadingSet.has(f.userId)">
                   {{ followLoadingSet.has(f.userId) ? '...' : t('user.following') }}
                 </button>
@@ -223,6 +227,8 @@
 import type { UserPublicResponse, ArticleWebResponse, HistoryItemResponse, FollowerResponse, FollowingResponse, BlockedUserResponse } from '~/composables/useBlogApi'
 import UserAvatar from '~/components/UserAvatar.vue'
 
+import { resolveImageUrl } from '~/composables/useImageUrl'
+
 const route = useRoute()
 const userId = Number(route.params.id)
 const { getUserProfile, getUserArticles, getMyHistory, getMyLikes, deleteMyHistory, toggleFollow, getFollowers, getFollowing, getFollowStatus, getBlockedUsers, unblockUser } = useBlogApi()
@@ -231,6 +237,7 @@ const { confirm } = useModal()
 const { t } = useI18n()
 
 const profile = ref<UserPublicResponse | null>(null)
+const profileAvatarUrl = computed(() => resolveImageUrl(profile.value?.avatar))
 const loading = ref(true)
 const error = ref('')
 

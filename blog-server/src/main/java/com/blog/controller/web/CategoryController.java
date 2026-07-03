@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * C端分类控制器
+ */
 @RestController("webCategoryController")
 @RequestMapping("/api/web")
 @RequiredArgsConstructor
@@ -17,6 +20,11 @@ public class CategoryController {
 
     private final CategoryService categoryService;
 
+    /**
+     * 获取全部分类列表
+     *
+     * @return 分类列表
+     */
     @GetMapping("/categories")
     public Result<List<CategoryDTO>> list() {
         List<CategoryDTO> list = categoryService.getCategories();

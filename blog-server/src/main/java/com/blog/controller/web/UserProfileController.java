@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 用户个人资料控制器
+ */
 @RestController
 @RequiredArgsConstructor
 public class UserProfileController {
@@ -39,6 +42,11 @@ public class UserProfileController {
 
     // ========== Authenticated: own profile ==========
 
+    /**
+     * 获取当前登录用户的个人资料
+     *
+     * @return 当前用户的昵称、头像、简介、邮箱等信息
+     */
     @GetMapping("/api/web/user/profile")
     public Result<UserProfileResponse> getMyProfile() {
         User user = userRepository.findById(getUserId())
@@ -50,6 +58,12 @@ public class UserProfileController {
         ));
     }
 
+    /**
+     * 更新当前登录用户的个人资料
+     *
+     * @param request 包含昵称、头像、简介等可更新字段
+     * @return 更新后的用户个人资料
+     */
     @PutMapping("/api/web/user/profile")
     public Result<UserProfileResponse> updateMyProfile(@Valid @RequestBody UserProfileUpdateRequest request) {
         User user = userRepository.findById(getUserId())
@@ -69,6 +83,12 @@ public class UserProfileController {
 
     // ========== Avatar Upload ==========
 
+    /**
+     * 上传用户头像
+     *
+     * @param file 上传的头像文件
+     * @return 头像图片 URL
+     */
     @PostMapping("/api/web/user/avatar")
     public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
         User user = userRepository.findById(getUserId())
@@ -82,6 +102,12 @@ public class UserProfileController {
 
     // ========== Password Change ==========
 
+    /**
+     * 修改当前登录用户的密码
+     *
+     * @param request 包含旧密码和新密码
+     * @return 修改成功返回空响应
+     */
     @PutMapping("/api/web/user/password")
     public Result<Void> changePassword(@Valid @RequestBody PasswordChangeRequest request) {
         User user = userRepository.findById(getUserId())
@@ -98,6 +124,12 @@ public class UserProfileController {
 
     // ========== Public: user search ==========
 
+    /**
+     * 搜索用户（按昵称或用户名模糊匹配）
+     *
+     * @param q 搜索关键词
+     * @return 匹配的用户列表（最多 20 条）
+     */
     @GetMapping("/api/web/users/search")
     public Result<List<UserSearchResponse>> searchUsers(@RequestParam String q) {
         if (q == null || q.trim().isEmpty()) {
@@ -115,6 +147,12 @@ public class UserProfileController {
 
     // ========== Public: user profiles ==========
 
+    /**
+     * 获取指定用户的公开资料
+     *
+     * @param userId 目标用户 ID
+     * @return 用户的昵称、头像、简介、文章数等公开信息
+     */
     @GetMapping("/api/web/users/{userId}")
     public Result<UserPublicResponse> getPublicProfile(@PathVariable Long userId) {
         User user = userRepository.findById(userId)
@@ -129,6 +167,14 @@ public class UserProfileController {
         ));
     }
 
+    /**
+     * 获取指定用户的公开文章列表，支持分页查询
+     *
+     * @param userId   目标用户 ID
+     * @param page     页码（从 1 开始，默认 1）
+     * @param pageSize 每页条数（默认 10）
+     * @return 文章分页列表（仅包含已发布的文章）
+     */
     @GetMapping("/api/web/users/{userId}/articles")
     public Result<PageDTO<ArticleWebResponse>> getUserArticles(
             @PathVariable Long userId,
