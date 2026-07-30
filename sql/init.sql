@@ -336,6 +336,9 @@ CREATE INDEX `idx_articles_status_published` ON `articles` (`status`, `published
 CREATE INDEX `idx_articles_category_id`      ON `articles` (`category_id`);
 CREATE INDEX `idx_articles_user_id`          ON `articles` (`user_id`);
 
+-- ngram fulltext index for article search
+ALTER TABLE `articles` ADD FULLTEXT INDEX `ft_idx_article_search` (`title`, `summary`, `content`) WITH PARSER ngram;
+
 -- comments
 CREATE INDEX `idx_comments_article_status`   ON `comments` (`article_id`, `status`);
 CREATE INDEX `idx_comments_parent_id`        ON `comments` (`parent_id`);

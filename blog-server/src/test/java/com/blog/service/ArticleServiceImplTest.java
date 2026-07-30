@@ -17,8 +17,10 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -45,6 +47,10 @@ class ArticleServiceImplTest {
     @Mock private MarkdownRenderer markdownRenderer;
     @Mock private RedisTemplate<String, Object> redisTemplate;
     @Mock private HashOperations<String, Object, Object> hashOperations;
+    @Mock private NotificationService notificationService;
+    @Mock private JdbcTemplate jdbcTemplate;
+    @Mock private ObjectMapper objectMapper;
+    @Mock private SearchPerfCollector searchPerfCollector;
 
     @InjectMocks
     private ArticleServiceImpl articleService;

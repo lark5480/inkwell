@@ -1,5 +1,6 @@
 package com.blog.service.impl;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -23,8 +25,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.DigestUtils;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.blog.common.CacheNames;
 import com.blog.dto.ArchiveArticle;
@@ -55,6 +64,7 @@ import com.blog.repository.UserRepository;
 import com.blog.service.ArticleService;
 import com.blog.service.MarkdownRenderer;
 import com.blog.service.NotificationService;
+import com.blog.service.SearchPerfCollector;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
@@ -81,6 +91,9 @@ public class ArticleServiceImpl implements ArticleService {
     private final MarkdownRenderer markdownRenderer;
     private final RedisTemplate<String, Object> redisTemplate;
     private final NotificationService notificationService;
+    private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
+    private final SearchPerfCollector searchPerfCollector;
 
     public ArticleServiceImpl(ArticleRepository articleRepository,
                               CategoryRepository categoryRepository,
@@ -91,7 +104,10 @@ public class ArticleServiceImpl implements ArticleService {
                               EntityManager entityManager,
                               MarkdownRenderer markdownRenderer,
                               RedisTemplate<String, Object> redisTemplate,
-                              NotificationService notificationService) {
+                              NotificationService notificationService,
+                              JdbcTemplate jdbcTemplate,
+                              ObjectMapper objectMapper,
+                              SearchPerfCollector searchPerfCollector) {
         this.articleRepository = articleRepository;
         this.categoryRepository = categoryRepository;
         this.tagRepository = tagRepository;
@@ -102,6 +118,9 @@ public class ArticleServiceImpl implements ArticleService {
         this.markdownRenderer = markdownRenderer;
         this.redisTemplate = redisTemplate;
         this.notificationService = notificationService;
+        this.jdbcTemplate = jdbcTemplate;
+        this.objectMapper = objectMapper;
+        this.searchPerfCollector = searchPerfCollector;
     }
 
     // ========== Admin Methods ==========
@@ -243,6 +262,7 @@ public class ArticleServiceImpl implements ArticleService {
 
         articleRepository.save(article);
         log.info("文章创建成功 id={}", article.getId());
+        registerClearSearchCacheAfterCommit();
         return article.getId();
     }
 
@@ -308,6 +328,7 @@ public class ArticleServiceImpl implements ArticleService {
 
         articleRepository.save(article);
         log.info("文章更新完成 id={}", id);
+        registerClearSearchCacheAfterCommit();
     }
 
     /**
@@ -329,6 +350,7 @@ public class ArticleServiceImpl implements ArticleService {
         Article article = findArticleById(id);
         article.setIsDeleted(true);
         articleRepository.save(article);
+        registerClearSearchCacheAfterCommit();
     }
 
     /**
@@ -353,6 +375,23 @@ public class ArticleServiceImpl implements ArticleService {
             article.setPublishedAt(LocalDateTime.now());
         }
         articleRepository.save(article);
+        registerClearSearchCacheAfterCommit();
+    }
+
+    /** 注册事务提交后清理搜索缓存的回调，若不在事务中则直接清理 */
+    private void registerClearSearchCacheAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        clearSearchCache();
+                    }
+                }
+            );
+        } else {
+            clearSearchCache();
+        }
     }
 
     // ========== Web Methods ==========
@@ -639,65 +678,117 @@ public class ArticleServiceImpl implements ArticleService {
     }
 
     /**
-     * C端：搜索文章（标题/内容/摘要匹配关键字）
+     * C端：搜索文章（基于 ngram 全文索引 MATCH AGAINST BOOLEAN MODE）
+     * 支持 Redis 缓存（5 分钟 TTL）和搜索性能统计。
      */
     @Override
     public PageDTO<ArticleWebResponse> searchArticles(String keyword, int page, int pageSize) {
-        Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "publishedAt"));
+        long startTime = System.nanoTime();
+        boolean cacheHit = false;
 
-        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Article> cq = cb.createQuery(Article.class);
-        Root<Article> root = cq.from(Article.class);
-        root.fetch("user", JoinType.LEFT);
-        root.fetch("category", JoinType.LEFT);
-        root.fetch("tags", JoinType.LEFT);
+        try {
+            // 空关键词走普通分页查询
+            if (keyword == null || keyword.isBlank()) {
+                PageDTO<ArticleWebResponse> result = getPublishedArticles(page, pageSize, null, null);
+                searchPerfCollector.recordSearch(System.nanoTime() - startTime, false);
+                return result;
+            }
 
-        List<Predicate> predicates = new ArrayList<>();
-        predicates.add(cb.equal(root.get("isDeleted"), false));
-        predicates.add(cb.equal(root.get("status"), "PUBLISHED"));
+            String trimmedKeyword = keyword.trim();
 
-        if (keyword != null && !keyword.isBlank()) {
-            String pattern = "%" + keyword.trim() + "%";
-            predicates.add(cb.or(
-                    cb.like(root.get("title"), pattern),
-                    cb.like(root.get("content"), pattern),
-                    cb.like(root.get("summary"), pattern)
-            ));
+            // 1. 搜索缓存检查
+            String cacheKey = "blog:search:" + md5(trimmedKeyword + ":" + page + ":" + pageSize);
+            String cached = (String) redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                try {
+                    PageDTO<ArticleWebResponse> result = objectMapper.readValue(cached,
+                            new TypeReference<PageDTO<ArticleWebResponse>>() {});
+                    searchPerfCollector.recordSearch(System.nanoTime() - startTime, true);
+                    return result;
+                } catch (Exception e) {
+                    log.warn("搜索缓存反序列化失败，降级查 DB，key={}", cacheKey, e);
+                    redisTemplate.delete(cacheKey);
+                }
+            }
+
+            // 2. 转义 BOOLEAN MODE 特殊字符
+            String escapedKeyword = escapeForBooleanMode(trimmedKeyword);
+            if (escapedKeyword.isBlank()) {
+                searchPerfCollector.recordSearch(System.nanoTime() - startTime, false);
+                return new PageDTO<>(Collections.emptyList(), 0L, page, pageSize);
+            }
+
+            // 3. Count 查询
+            String countSql = """
+                    SELECT COUNT(*) FROM articles
+                    WHERE is_deleted = 0 AND status = 'PUBLISHED'
+                      AND MATCH(title, summary, content) AGAINST(? IN BOOLEAN MODE)
+                    """;
+            Long total = jdbcTemplate.queryForObject(countSql, Long.class, escapedKeyword);
+            if (total == null || total == 0) {
+                searchPerfCollector.recordSearch(System.nanoTime() - startTime, false);
+                PageDTO<ArticleWebResponse> emptyResult = new PageDTO<>(Collections.emptyList(), 0L, page, pageSize);
+                // 空结果也缓存，防止缓存穿透
+                redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(emptyResult), 2, TimeUnit.MINUTES);
+                return emptyResult;
+            }
+
+            // 4. 数据查询 — 先查文章 ID + 相关性排序
+            String dataSql = """
+                    SELECT id FROM articles
+                    WHERE is_deleted = 0 AND status = 'PUBLISHED'
+                      AND MATCH(title, summary, content) AGAINST(? IN BOOLEAN MODE)
+                    ORDER BY MATCH(title, summary, content) AGAINST(? IN BOOLEAN MODE) DESC,
+                             published_at DESC
+                    LIMIT ? OFFSET ?
+                    """;
+            int offset = (page - 1) * pageSize;
+            List<Long> articleIds = jdbcTemplate.queryForList(dataSql, Long.class,
+                    escapedKeyword, escapedKeyword, pageSize, offset);
+
+            if (articleIds.isEmpty()) {
+                searchPerfCollector.recordSearch(System.nanoTime() - startTime, false);
+                PageDTO<ArticleWebResponse> emptyResult = new PageDTO<>(Collections.emptyList(), 0L, page, pageSize);
+                // 空结果也缓存，防止缓存穿透
+                redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(emptyResult), 2, TimeUnit.MINUTES);
+                return emptyResult;
+            }
+
+            // 5. 加载完整实体（复用 JPA fetch 关联数据）
+            CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+            CriteriaQuery<Article> cq = cb.createQuery(Article.class);
+            Root<Article> root = cq.from(Article.class);
+            root.fetch("user", JoinType.LEFT);
+            root.fetch("category", JoinType.LEFT);
+            root.fetch("tags", JoinType.LEFT);
+            cq.where(root.get("id").in(articleIds));
+            List<Article> articles = entityManager.createQuery(cq).getResultList();
+
+            // 保持与搜索结果一致的排序
+            Map<Long, Article> articleMap = articles.stream()
+                    .collect(Collectors.toMap(Article::getId, a -> a));
+            List<Article> sortedArticles = articleIds.stream()
+                    .filter(articleMap::containsKey)
+                    .map(articleMap::get)
+                    .toList();
+
+            List<ArticleWebResponse> records = sortedArticles.stream()
+                    .map(this::toWebResponse)
+                    .toList();
+
+            // 6. 组装结果并缓存
+            PageDTO<ArticleWebResponse> result = new PageDTO<>(records, total, page, pageSize);
+            String json = objectMapper.writeValueAsString(result);
+            redisTemplate.opsForValue().set(cacheKey, json, 5, TimeUnit.MINUTES);
+
+            // 7. 记录性能指标
+            searchPerfCollector.recordSearch(System.nanoTime() - startTime, false);
+            return result;
+        } catch (Exception e) {
+            searchPerfCollector.recordSearch(System.nanoTime() - startTime, cacheHit);
+            log.error("搜索文章失败 keyword={}", keyword, e);
+            throw new BusinessException(500, "搜索失败");
         }
-
-        cq.where(predicates.toArray(new Predicate[0]));
-        cq.distinct(true);
-        cq.orderBy(cb.desc(root.get("publishedAt")));
-
-        // Count
-        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
-        Root<Article> countRoot = countQuery.from(Article.class);
-        List<Predicate> countPredicates = new ArrayList<>();
-        countPredicates.add(cb.equal(countRoot.get("isDeleted"), false));
-        countPredicates.add(cb.equal(countRoot.get("status"), "PUBLISHED"));
-        if (keyword != null && !keyword.isBlank()) {
-            String pattern = "%" + keyword.trim() + "%";
-            countPredicates.add(cb.or(
-                    cb.like(countRoot.get("title"), pattern),
-                    cb.like(countRoot.get("content"), pattern),
-                    cb.like(countRoot.get("summary"), pattern)
-            ));
-        }
-        countQuery.select(cb.countDistinct(countRoot));
-        countQuery.where(countPredicates.toArray(new Predicate[0]));
-
-        long total = entityManager.createQuery(countQuery).getSingleResult();
-
-        TypedQuery<Article> typedQuery = entityManager.createQuery(cq);
-        typedQuery.setFirstResult((page - 1) * pageSize);
-        typedQuery.setMaxResults(pageSize);
-        List<Article> articles = typedQuery.getResultList();
-
-        List<ArticleWebResponse> records = articles.stream()
-                .map(this::toWebResponse)
-                .toList();
-
-        return new PageDTO<>(records, total, page, pageSize);
     }
 
     /**
@@ -925,6 +1016,42 @@ public class ArticleServiceImpl implements ArticleService {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&apos;");
+    }
+
+    /** 转义 BOOLEAN MODE 特殊字符，保留中文和英文单词 */
+    private String escapeForBooleanMode(String keyword) {
+        // BOOLEAN MODE 特殊字符: + - > < ( ) ~ * " @ !
+        return keyword.replaceAll("[+\\-><()~*\"@!]", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    /** MD5 摘要，用于生成搜索缓存 key */
+    private String md5(String input) {
+        return DigestUtils.md5DigestAsHex(input.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** 清理搜索缓存（文章变更时调用），使用 SCAN 避免阻塞 Redis */
+    private void clearSearchCache() {
+        try {
+            Set<String> keys = redisTemplate.execute((org.springframework.data.redis.connection.RedisConnection connection) -> {
+                Set<String> result = new java.util.HashSet<>();
+                try (org.springframework.data.redis.core.Cursor<byte[]> cursor = connection.scan(
+                        org.springframework.data.redis.core.ScanOptions.scanOptions()
+                            .match("blog:search:*")
+                            .count(100)
+                            .build())) {
+                    while (cursor.hasNext()) {
+                        result.add(new String(cursor.next(), java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                }
+                return result;
+            });
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+                log.info("已清理 {} 个搜索缓存", keys.size());
+            }
+        } catch (Exception e) {
+            log.warn("清理搜索缓存失败", e);
+        }
     }
 
     /** 获取当前登录用户 ID，未登录返回 null */
