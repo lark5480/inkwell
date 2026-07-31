@@ -110,10 +110,13 @@ public class CommentServiceImpl implements CommentService {
 
         comment.setArticle(article);
 
-        /* 设置父评论 */
+        /* 设置父评论（仅支持一级嵌套：不能回复子评论） */
         if (request.parentId() != null) {
             Comment parent = commentRepository.findById(request.parentId())
                     .orElseThrow(() -> new BusinessException(404, "Parent comment not found"));
+            if (parent.getParent() != null) {
+                throw new BusinessException(400, "评论仅支持一级嵌套，不能回复子评论");
+            }
             comment.setParent(parent);
         }
 

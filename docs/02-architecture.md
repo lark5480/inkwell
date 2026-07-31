@@ -74,7 +74,7 @@ com.blog/
 - **逻辑删除**：`@SQLRestriction("is_deleted = 0")`，删除走 UPDATE
 - **访问量/点赞**用 Redis 原子计数，定时回写 MySQL（匿名用户）；登录用户点赞直接写 DB（per-user toggle）
 - **浏览记录**：登录用户访问文章详情时自动记录到 `article_view_history` 表
-- **Markdown** 用 flexmark 服务端渲染，HTML 结果缓存在 Redis
+- **Markdown** 用 flexmark 服务端渲染（表格/任务列表/自动链接），HTML 结果缓存在 Redis；前端通过 `v-html` 直接展示预渲染 HTML
 - **缓存一致性**：用户写操作通过 `@CacheEvict` 清除 ARTICLE_LIST/ARCHIVE/DETAIL/HTML/PREV_NEXT/SITE_INFO 缓存
 - **多作者支持**：每个用户只能管理自己的文章，`UserArticleServiceImpl` 含 ownership 检查
 - **文件存储**：`FileStorageService` 接口抽象，通过 `blog.storage.type` 配置切换 MinIO / 本地存储，`@ConditionalOnProperty` 自动选择实现
@@ -114,31 +114,33 @@ pages/           # 路由页面 (自动路由)
   ├── tags.vue            # 标签云
   └── login/register/about/links.vue
 composables/
-  ├── useAuth.ts      # 登录/注册/用户状态
-  ├── useBlogApi.ts   # API 封装 (50+ 端点)
+  ├── useAuth.ts      # 登录/注册/用户状态 (useState + localStorage)
+  ├── useBlogApi.ts   # API 封装 (50+ 端点, $fetch/ofetch)
   ├── useTheme.ts     # 暗色模式
   └── useI18n.ts      # 国际化 (zh/en)
-middleware/
-  └── auth.ts         # 认证守卫 (SSR guard)
 components/
   ├── UserAvatar.vue      # 通用头像组件 (有图/首字母兜底/多尺寸/可点击)
   ├── TocBlock.vue        # 文章 TOC 目录 (IntersectionObserver)
-  ├── MarkdownRenderer.vue # Markdown 渲染
   ├── CommentActionBar.vue  # 评论操作栏 (赞/踩/回复/分享/更多)
   ├── CommentItem.vue       # 评论条目 (含头像显示/回复/举报/拉黑)
   ├── VoteButton.vue        # 赞/踩按钮
+  ├── ArticleCard.vue       # 文章卡片
+  ├── ArticleEditor.vue     # Markdown 编辑器 (md-editor-v3)
+  ├── NotificationList.vue  # 通知列表
+  ├── Pagination.vue        # 分页
+  ├── Sidebar.vue           # 侧边栏
+  ├── AppModal.vue          # 模态框
   ├── MoreMenu.vue          # 三点菜单
-  ├── SharePopover.vue      # 分享面板
-  └── NotificationList.vue  # 通知列表
+  └── SharePopover.vue      # 分享面板
 server/routes/
-  └── uploads/[...path].ts  # 图片文件服务
+  └── rss.xml.ts            # RSS Feed 生成
 ```
 
 ### 认证
 
 - Token 存 localStorage (`blog_token`)
-- 用户信息缓存在 localStorage，`onMounted` 恢复
-- 受保护页面通过 `middleware/auth.ts` 守卫
+- 用户信息通过 `useState` 管理，`onMounted` 从 localStorage 恢复（避免 hydration 不匹配）
+- 受保护页面通过在 `useAuth()` composable 中检查 token 实现守卫（无独立 middleware）
 
 ## 前端 B端 (blog-admin)
 

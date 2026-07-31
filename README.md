@@ -7,7 +7,7 @@
 | 模块 | 技术 | 端口 |
 |------|------|------|
 | **blog-server** | Spring Boot 3.2 + JPA + Security + Redis | 8080 |
-| **blog-web** (C端) | Nuxt 3 SSR + UnoCSS + Pinia | 3000 |
+| **blog-web** (C端) | Nuxt 3 SSR + UnoCSS (+ Pinia 注册但未使用) | 3000 |
 | **blog-admin** (B端) | Vue 3 + Element Plus + Pinia + Axios | 3001 |
 | **Database** | MySQL 8.0 | 3306 | 
 | **Cache** | Redis 7 | 6379 |
