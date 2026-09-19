@@ -2,6 +2,8 @@
 
 Instructions for AI agents (Claude Code, Codex, etc.) when working on this project.
 
+> 本文件是 AI 协作指令的**唯一事实源**；`CLAUDE.md` 仅作为指向本文件的存根，请勿在两边重复维护。
+
 ## Commands
 
 ### blog-server (Java 17, Maven)
@@ -13,7 +15,7 @@ cd blog-server
 ./mvnw test                      # 运行测试
 ```
 
-依赖：MySQL (localhost:3306, db:blog) + Redis (localhost:6379)。
+依赖：MySQL (localhost:3306, db:blog) + Redis (localhost:6379) + MinIO (localhost:9000，文件存储)。
 
 ### blog-web (Nuxt 3)
 
@@ -28,7 +30,7 @@ npm run preview   # 预览构建产物
 
 ```bash
 cd blog-admin
-npm run dev       # 开发服务器 (端口 5173, 代理 /api → 8080)
+npm run dev       # 开发服务器 (端口 3001, 代理 /api → 8080)
 npm run build     # 构建输出到 dist/
 npm run preview   # 预览构建产物
 ```
