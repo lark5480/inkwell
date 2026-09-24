@@ -111,6 +111,7 @@ pages/           # 路由页面 (自动路由)
   ├── notifications.vue   # 通知 (重定向到 /messages)
   ├── search.vue          # 搜索
   ├── archive.vue         # 归档
+  ├── categories.vue      # 分类总览
   ├── tags.vue            # 标签云
   └── login/register/about/links.vue
 composables/
@@ -140,7 +141,7 @@ server/routes/
 
 - Token 存 localStorage (`blog_token`)
 - 用户信息通过 `useState` 管理，`onMounted` 从 localStorage 恢复（避免 hydration 不匹配）
-- 受保护页面通过在 `useAuth()` composable 中检查 token 实现守卫（无独立 middleware）
+- 受保护页面通过全局路由中间件 `middleware/auth.ts` 实现守卫，页面用 `definePageMeta({ middleware: ['auth'] })` 声明（write/settings/my-articles/notifications）；中间件在 `useAuth()` 状态未恢复时直接读 localStorage 兜底，避免误跳转
 
 ## 前端 B端 (blog-admin)
 

@@ -112,7 +112,7 @@ personal-blog/
 │       └── application-docker.yml # Docker 环境配置
 │
 ├── blog-web/          # Nuxt 3 C端 SSR (端口 3000)
-│   ├── pages/         # 页面路由 (15 个页面)
+│   ├── pages/         # 页面路由 (20 个页面)
 │   ├── components/    # 公共组件 (TocBlock, MarkdownRenderer)
 │   ├── composables/   # useAuth, useBlogApi, useTheme
 │   ├── middleware/     # auth.ts (认证守卫)
@@ -195,6 +195,7 @@ docker compose logs -f    # 查看日志
 | `/article/:slug` | 文章详情 |
 | `/article/edit/:id` | 编辑文章 |
 | `/category/:slug` | 分类文章 |
+| `/categories` | 分类总览 |
 | `/tag/:slug` | 标签文章 |
 | `/user/:id` | 用户公开主页 (文章/关注/粉丝/历史) |
 | `/settings` | 个人设置 (头像/昵称/签名/修改密码) |
@@ -236,7 +237,7 @@ docker compose logs -f    # 查看日志
 - `GET /api/web/categories` — 全部分类
 - `GET /api/web/tags` — 全部标签
 - `GET /api/web/links` — 友链列表
-- `GET /api/web/comments?articleId=` — 文章评论
+- `GET /api/web/comments?articleId=` — 文章评论（登录时已过滤拉黑用户）
 - `POST /api/web/comments` — 发表评论
 - `GET /api/web/search?q=` — 搜索文章
 - `GET /api/web/site-info` — 站点信息
@@ -257,10 +258,6 @@ docker compose logs -f    # 查看日志
 - `GET /api/web/messages?userId=&page=&pageSize=` — 聊天记录
 - `POST /api/web/messages` — 发送私信
 - `GET /api/web/messages/unread-count` — 私信未读数
-- `GET /api/web/comments?articleId=` — 文章评论（已过滤拉黑用户）
-- `POST /api/web/comments/{id}/vote` — 赞/踩投票
-- `POST /api/web/comments/{id}/report` — 举报评论
-- `DELETE /api/web/comments/{id}` — 删除自己的评论
 
 **C 端（需登录）** `/api/web/user/**`
 
