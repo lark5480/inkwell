@@ -33,12 +33,6 @@ uploads/
 .settings/
 .project
 .classpath
-.superpowers
-docs/superpowers
-
-# Claude local config
-.claude/settings.local.json
-.claude/skills/
 
 # OS
 .DS_Store
