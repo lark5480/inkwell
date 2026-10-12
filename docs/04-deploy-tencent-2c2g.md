@@ -216,17 +216,25 @@ SQL
 sudo mkdir -p /opt/backup/mysql
 sudo tee /opt/backup/dump.sh >/dev/null <<'EOF'
 #!/bin/bash
-set -e
+set -eo pipefail
+# ↑ pipefail 是关键：没有它，mysqldump 失败会被管道末端 gzip 的成功退出码掩盖，
+#   结果是"每天备份都成功"，实际全是 20 字节的空文件
 cd /opt/inkwell
 DC="docker compose --env-file .env.prod -f docker-compose.prod.yml"
-$DC exec -T blog-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines blog' \
-  | gzip > /opt/backup/mysql/blog-$(date +%F).sql.gz
+out=/opt/backup/mysql/blog-$(date +%F).sql.gz
+$DC exec -T blog-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines blog' | gzip > "$out"
+sz=$(stat -c%s "$out")
+[ "$sz" -gt 1024 ] || { echo "备份文件异常小($sz 字节)，视为失败"; exit 1; }
+gzip -t "$out" || { echo "备份文件损坏"; exit 1; }
 tar czf /opt/backup/uploads-$(date +%F).tgz -C /opt/inkwell uploads
 find /opt/backup -type f -mtime +14 -delete
 EOF
 sudo chmod +x /opt/backup/dump.sh
 (sudo crontab -l 2>/dev/null; echo "30 3 * * * /opt/backup/dump.sh >> /var/log/inkwell-backup.log 2>&1") | sudo crontab -
 ```
+
+> 配好后**务必当场验证一次**：`sudo /opt/backup/dump.sh && ls -la /opt/backup/mysql/`，
+> 确认文件是几十 KB 以上而不是 20 字节（空 gzip）。
 
 `.env.prod` 和 `uploads/` 也要一起备份（前者丢了 JWT 密钥就换，后者丢了图片就没了）。
 
@@ -361,25 +369,41 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1/api/web/site-info
 
 ### 11.5 ⚠️ 改了实体/表结构必须先做数据库迁移
 
-三个 profile 都是 `ddl-auto: validate`：**代码与表结构不一致时，新后端会在启动时校验失败并反复重启**。
-`sql/init.sql` 只在数据卷为空时执行一次，**对已有库无效**，所以要手工迁移（`sql/` 下已有 `migration_add_ngram_fulltext.sql` 这个先例）：
+三个 profile 都是 `ddl-auto: validate`：**代码与表结构不一致时，新后端启动即校验失败并反复重启**（表现为站点 502 + 容器 restarting）。
+`sql/init.sql` 只在数据卷为空时执行一次，**对已有库无效**。所以项目里有了一套正式的迁移机制：
+
+| 位置 | 作用 |
+|------|------|
+| `sql/migrations/V<YYYYMMDDHHMMSS>__<desc>.sql` | 一条变更一个文件，按文件名排序执行 |
+| `sql/migrations/README.md` | 命名、幂等、漂移等约定 |
+| 服务器上的 `schema_migrations` 表 | 登记哪些迁移已应用 + 文件 sha256 |
+| `scripts/migrate.ps1` | `-Status` 看清单；`-Apply` 备份 → 按序应用 → 登记 |
+
+```powershell
+# 1) 写迁移文件（同时记得改 sql/init.sql，让新库一步到位）
+#    sql/migrations/V20261103101500__articles_add_cover_alt.sql
+pwsh scripts/migrate.ps1 -Status     # 2) 看本地/已应用/待应用
+pwsh scripts/migrate.ps1 -Apply      # 3) 备份 + 按序应用 + 登记（空备份会中止）
+pwsh scripts/deploy.ps1              # 4) 再发布镜像
+```
+
+`deploy.ps1` 在第 0 步会**主动拦截**两种情况：① 服务器上有未应用的迁移；② 本次改动动了实体却没带迁移文件（除非显式 `-AllowSchemaChange`）。
+
+急着手工做也行——但注意两个坑：
 
 ```bash
 cd /opt/inkwell
 DC="docker compose --env-file .env.prod -f docker-compose.prod.yml"
-
-# 1) 先备份（务必）
-mkdir -p /opt/backup
+set -o pipefail                       # 坑②：不加 pipefail，mysqldump 失败会被 gzip 的退出码掩盖 → 你会得到一个"成功"的空备份
+sudo mkdir -p /opt/backup && sudo chown "$(id -un):$(id -gn)" /opt/backup
+# 注意：docker exec 没有 -T 参数（坑①），-T 是 docker compose exec 的
 $DC exec -T blog-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines blog' \
   | gzip > /opt/backup/pre-migrate-$(date +%F-%H%M).sql.gz
-
-# 2) 执行迁移 SQL（把迁移脚本一起传到服务器）
-$DC exec -T blog-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" blog' < sql/你的迁移.sql
-
-# 3) 再发布镜像
+sz=$(stat -c%s /opt/backup/pre-migrate-*.sql.gz | tail -1); [ "$sz" -gt 1024 ] || { echo "备份异常小，别继续"; exit 1; }
+$DC exec -T blog-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" blog' < sql/migrations/你的迁移.sql
 ```
 
-判断是否踩到这个坑：`docker logs blog-server | grep -i "schema validation\|missing column\|SchemaManagementException"`。
+判断是否踩到这个坑：`$DC logs blog-server | grep -iE "schema validation|SchemaManagementException|doesn't exist"`。
 
 ### 11.6 其它两条路（可选）
 

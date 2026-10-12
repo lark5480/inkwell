@@ -35,7 +35,9 @@ param(
   [ValidateSet('blog-server', 'blog-web', 'blog-admin')]
   [string[]]$Services = @('blog-server', 'blog-web', 'blog-admin'),
   [switch]$Rollback,
-  [switch]$SkipVerify
+  [switch]$SkipVerify,
+  # 明知本次动了实体/表结构却没有配套迁移文件时，显式跳过守卫（危险，自担风险）
+  [switch]$AllowSchemaChange
 )
 
 $ErrorActionPreference = 'Stop'
@@ -98,6 +100,56 @@ if ($Rollback) {
   exit 0
 }
 
+# ---------------------------------------------------------------- 数据库结构守卫
+# 三个 profile 都是 ddl-auto: validate：数据库没跟上代码时，新后端启动即失败。
+# 这里做两道拦截，把"忘了迁移"变成发布失败而不是线上 502。
+if (-not $Rollback) {
+  Write-Host "`n=== 0/6 数据库迁移检查 ===" -ForegroundColor Cyan
+
+  # a) 服务器上还有未应用的迁移 → 拒绝发布
+  & pwsh -NoProfile -File "$root\scripts\migrate.ps1" -Server $Server -SshUser $SshUser -SshKey $SshKey -RemoteDir $RemoteDir -CheckPending
+  switch ($LASTEXITCODE) {
+    0 { Write-Host "  迁移状态：无待应用" -ForegroundColor Green }
+    2 {
+      throw "存在待应用的数据库迁移，已中止发布。请先执行：`n  pwsh scripts/migrate.ps1 -Apply`n（或先 -Status 看清单）"
+    }
+    default { throw "迁移状态检查失败（exit $LASTEXITCODE）" }
+  }
+
+  # b) 本次改动动了实体/表结构，却没有配套迁移文件 → 拒绝发布
+  $deployedRaw = (Invoke-Remote "cat $RemoteDir/DEPLOYED 2>/dev/null || echo ''").Trim()
+  $deployedRev = if ($deployedRaw -match '@([0-9a-f]{7,40})') { $Matches[1] } else { $null }
+  if ($deployedRev) {
+    & git rev-parse --verify --quiet "$deployedRev^{commit}" > $null 2>&1
+    if ($LASTEXITCODE -eq 0) {
+      $changed = @(& git diff --name-only $deployedRev 2>$null) + @(& git ls-files --others --exclude-standard 2>$null)
+      $schemaTouched = @($changed | Where-Object { $_ -match '^blog-server/src/main/java/com/blog/entity/' -or $_ -eq 'sql/init.sql' } | Select-Object -Unique)
+      $migrationTouched = @($changed | Where-Object { $_ -match '^sql/migrations/.*\.sql$' } | Select-Object -Unique)
+      if ($schemaTouched.Count -gt 0 -and $migrationTouched.Count -eq 0) {
+        if ($AllowSchemaChange) {
+          Write-Host "  ⚠️ 动了实体但没有迁移文件（已用 -AllowSchemaChange 跳过）：" -ForegroundColor Yellow
+          $schemaTouched | ForEach-Object { Write-Host "      $_" -ForegroundColor Yellow }
+        } else {
+          Write-Host "  ✗ 自 $deployedRev 以来动了实体/表结构，但 sql/migrations/ 下没有新迁移：" -ForegroundColor Red
+          $schemaTouched | ForEach-Object { Write-Host "      $_" -ForegroundColor Red }
+          throw @"
+这会导致新后端启动时 Hibernate 校验失败（线上 502 + 容器重启）。
+请先写一条迁移（命名 V<YYYYMMDDHHMMSS>__<desc>.sql，见 sql/migrations/README.md），
+再 pwsh scripts/migrate.ps1 -Apply，然后重新发布。
+确实不需要迁移（例如只改了 getter/注释）时，可加 -AllowSchemaChange 跳过本检查。
+"@
+        }
+      } elseif ($migrationTouched.Count -gt 0) {
+        Write-Host "  本次变更包含迁移文件（已确认应用）：$($migrationTouched -join ', ')" -ForegroundColor Green
+      }
+    } else {
+      Write-Host "  跳过实体变更守卫：本地没有服务器上部署的提交 $deployedRev" -ForegroundColor DarkGray
+    }
+  } else {
+    Write-Host "  跳过实体变更守卫：读不到 $RemoteDir/DEPLOYED" -ForegroundColor DarkGray
+  }
+}
+
 # ---------------------------------------------------------------- 1) 构建
 Write-Host "`n=== 1/6 本地构建 $($Services -join ', ') ===" -ForegroundColor Cyan
 & docker @compose build @Services
@@ -156,8 +208,22 @@ if (-not $SkipVerify) {
   'printf "  API  HTTP %s\n" "$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/api/web/site-info)"; ' +
   'printf "  RSS  HTTP %s\n" "$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/rss.xml)"'
   Invoke-Remote $probe
-  Write-Host "`n  提示：日志里若出现 Hibernate schema validation 相关报错，" -ForegroundColor Yellow
-  Write-Host "        说明数据库结构没跟上代码，需先执行迁移 SQL（见 docs/04 §11.5）。" -ForegroundColor Yellow
+  # 后端没起来时，主动把"是不是数据库没跟上"这个原因查出来，而不是让你自己猜
+  $diag = @'
+if ! curl -sf http://127.0.0.1/api/web/site-info >/dev/null 2>&1; then
+  echo ""
+  echo "  !! 后端未就绪。blog-server 最近日志里的关键行："
+  cd /opt/inkwell
+  docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=80 blog-server 2>&1 | grep -iE "schema|validation|missing column|doesn.t exist|ERROR|Exception" | tail -10 | sed "s/^/    /"
+  echo ""
+  echo "  若上面是 Hibernate schema validation 报错 → 数据库结构没跟上代码："
+  echo "    1) pwsh scripts/migrate.ps1 -Status    # 看漏了哪条迁移"
+  echo "    2) pwsh scripts/migrate.ps1 -Apply     # 备份 + 应用"
+  echo "    3) pwsh scripts/deploy.ps1             # 再发布"
+  echo "  急着先恢复服务：pwsh scripts/deploy.ps1 -Rollback"
+fi
+'@
+  Invoke-Remote $diag
 }
 
 Write-Host "`n✅ 发布完成：http://$Server/" -ForegroundColor Green
