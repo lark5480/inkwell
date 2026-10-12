@@ -23,7 +23,7 @@ docker compose up -d
 # → API: http://localhost:8080
 ```
 
-默认管理员：`admin` / `admin123`
+默认管理员：`admin` / `admin123`（**仅新建数据库时的初始口令**。一旦部署到公网可访问的机器，请立刻修改——本仓库是公开的，这个口令等于公开的。）
 
 传统本地开发（Java + Node.js 手动启动）见 [01-快速入门](docs/01-getting-started.md)。
 

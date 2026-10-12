@@ -76,6 +76,11 @@
 
 ## 七、当时遗留的待办
 
+> **后续（同日）进展**：① 改密码 **已完成**——随机强口令写在服务器 `/root/admin-password.txt`（600），旧口令已验证返回 `code:401` 失效；
+> ③ 备份 cron **已配好**，并在 cron 的最小环境（`sudo env -i PATH=/usr/bin:/bin /opt/backup/dump.sh`）实测产出 10809 字节的 dump；
+> ② 演示数据按决定**暂不清**（留作烟雾测试夹具）；④ 域名/HTTPS 待要对外分享时再做。
+> 排查过程中又踩到一个坑并已记入 `AGENTS.md`：本项目业务错误也返回 **HTTP 200**，验证必须看 body 里的 `code`。
+
 - 改掉 `admin/admin123`（站点已公网可达）
 - 决定是否清理 `sql/init.sql` 里的 14 篇演示文章 / 6 个演示分类
 - 配置备份 cron（`docs/04` §7.3，注意其中的 pipefail + 大小校验）

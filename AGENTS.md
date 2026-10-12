@@ -87,6 +87,8 @@ pwsh scripts/migrate.ps1 -Apply      # 备份 → 按序应用 → 登记到 sch
 | 改实体/表结构必须配套迁移文件（`sql/migrations/V<时间戳>__<描述>.sql`），并先 `pwsh scripts/migrate.ps1 -Apply` 再发布 | 三个 profile 都是 `ddl-auto: validate`，结构不一致时新后端启动即失败并反复重启（站点 502）。`scripts/deploy.ps1` 会主动拦截：有待应用迁移、或动了实体却没带迁移文件 → 拒绝发布 |
 | `.env.prod`、TLS 证书、真实服务器地址**不入库**（`.gitignore` 已覆盖）；发布脚本用 `$env:INKWELL_SERVER` 传地址 | 仓库是公开的；服务器 IP 上线前泄露等于给扫描器指路 |
 | 后台按 `/admin/` 子路径构建（`VITE_BASE=/admin/` + router 用 `import.meta.env.BASE_URL`） | nginx 用 `location /admin/` 反代并剥掉前缀，按根路径构建会白屏 + 刷新 404 |
+| 调 API 做验证时，**必须看 body 里的 `code`，不能只看 HTTP 状态码** | 本项目统一用 `Result<T> = {code,message,data}` 信封：登录失败等业务错误**也是 HTTP 200**，只有 body 里的 `code=401`。用 `curl -w '%{http_code}'` 判断会得出完全相反的结论（实测踩到：改完密码后用旧密码登录仍显示 HTTP 200，差点误判为"改密没生效"） |
+| 判断分支关系/能否快进前，先 `git fetch --prune`；发布只从 `master` 的提交发，别从工作区发 | 本仓库 master 是通过 PR 合并的（已有 #1~#13），本地 master 引用很容易陈旧；`deploy.ps1` 会把脏工作区标成 `+dirty(N)`，用提交号才能和 `DEPLOYED` 对账 |
 
 ## 发布 / 上线
 
@@ -113,11 +115,32 @@ pwsh scripts/deploy.ps1 -Rollback           # 回滚到上一版（:prev 标签�
 
 ```bash
 # 分支（实际使用的两个）
-master            # 发布分支：上线前从 dev 快进合并
+master            # 发布分支：只接受来自 dev 的 PR 合并（历史上有 PR #1~#13）
 dev               # 日常开发：feature/* / fix/* 合到这里
+```
 
-git checkout master && git merge --ff-only dev   # 发布前
+发布流程（**不要**本地快进后直推 master——master 上有 PR 合并提交，本地引用很容易陈旧）：
 
-# commit
+```bash
+git fetch --prune                       # 先刷新，再谈能不能快进
+git checkout dev && git status -sb      # ★ 提交前先确认自己在哪个分支
+git add ... && git commit -m "..."      # 日常提交在 dev
+git push origin dev
+
+# 上线：开 PR 并合并（单人仓库也别省这一步，合并记录就是发布记录）
+gh pr create --base master --head dev --title "..." --body "..."
+gh pr merge <编号> --merge
+
+# 发布：从 master 的提交发，而不是从工作区
+git checkout master && git pull --ff-only
+pwsh scripts/deploy.ps1                 # DEPLOYED 会记录 master@<merge-commit>
+git checkout dev                        # ★ 发完切回来，否则下一次提交会落在 master 上
+```
+
+> 实测踩过：从 master 发布后忘记切回 dev，下一个提交就落在了本地 master 上，
+> 还导致 `gh pr create` 报 "No commits between master and dev"。**提交前 `git status -sb`，发布后切回 dev。**
+
+```bash
+# commit 规范
 feat:|fix:|docs:|refactor:|chore:
 ```
