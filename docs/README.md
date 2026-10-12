@@ -16,6 +16,7 @@
 | 文档 | 说明 |
 |------|------|
 | [notes/interview-qa.md](notes/interview-qa.md) | 基于某版本代码整理的知识 / 面试笔记，是实现快照，**不作为权威来源**；准确行为以上述文档和源码为准 |
+| [notes/production-deploy-retrospective.md](notes/production-deploy-retrospective.md) | 2C2G 生产上线复盘：机器实况、决策理由、四个真问题（含只有"真跑一遍/真回滚一次"才暴露的两个）、操作坑清单。同样是快照 |
 
 ## AI 协作指令
 
