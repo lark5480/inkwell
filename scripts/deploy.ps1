@@ -61,7 +61,10 @@ $compose = @('compose', '--env-file', $envFile, '-f', "$root\docker-compose.prod
 $remoteCompose = "docker compose --env-file .env.prod -f docker-compose.prod.yml"
 
 function Invoke-Remote([string]$Command) {
-  $out = & ssh @sshArgs $target $Command 2>&1
+  # 通过 stdin 交给远端 bash（远端先 tr -d '\r' 去掉 PowerShell 写入的 CRLF）。
+  # 不要把多行脚本当 ssh 的**参数**传：里面的引号、注释(#)、括号会被远端 shell
+  # 重新解析，实测会炸出 `bash: syntax error near unexpected token 'fi'`。
+  $out = $Command | & ssh @sshArgs $target "tr -d '\r' | bash -s" 2>&1
   if ($LASTEXITCODE -ne 0) { throw "远端命令失败（exit $LASTEXITCODE）: $Command`n$out" }
   return $out
 }
@@ -214,7 +217,7 @@ if ! curl -sf http://127.0.0.1/api/web/site-info >/dev/null 2>&1; then
   echo ""
   echo "  !! 后端未就绪。blog-server 最近日志里的关键行："
   cd /opt/inkwell
-  docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=80 blog-server 2>&1 | grep -iE "schema|validation|missing column|doesn.t exist|ERROR|Exception" | tail -10 | sed "s/^/    /"
+  docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=80 blog-server 2>&1 | grep -iE "schema|validation|missing column|doesn.t exist|Caused by|ERROR" | tail -10 | sed "s/^/    /"
   echo ""
   echo "  若上面是 Hibernate schema validation 报错 → 数据库结构没跟上代码："
   echo "    1) pwsh scripts/migrate.ps1 -Status    # 看漏了哪条迁移"
