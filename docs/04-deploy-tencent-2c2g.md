@@ -190,6 +190,24 @@ curl -s "http://$SERVER_IP/api/web/site-info"   # 安全组放通后才通
 
 `admin/admin123` 是初始化脚本里的弱口令。登录 C 端 → 个人中心 `/settings` → 修改密码（后台账号同时是 C 端账号）。注册接口是开放的（多作者平台），如果暂时不想要公开注册，先把首页注册入口下线或在前端路由里拦住。
 
+> **不想在浏览器里操作 / 想用随机强口令**（口令不经手任何人）：
+>
+> ```bash
+> # 在服务器上生成并改密（口令只存在于服务器）
+> NEWPW=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 20)
+> TOKEN=$(curl -s -X POST http://127.0.0.1/api/web/auth/login -H 'Content-Type: application/json' \
+>   -d '{"username":"admin","password":"admin123"}' | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+> curl -s -X PUT http://127.0.0.1/api/web/user/password -H "Authorization: Bearer $TOKEN" \
+>   -H 'Content-Type: application/json' -d "{\"oldPassword\":\"admin123\",\"newPassword\":\"$NEWPW\"}"
+> printf '新口令: %s\n' "$NEWPW" | sudo tee /root/admin-password.txt >/dev/null && sudo chmod 600 /root/admin-password.txt
+> ```
+>
+> ⚠️ **验证时必须看 body 里的 `code`**：本项目业务错误同样返回 HTTP 200（`{"code":401,...}`），
+> 用 `curl -w '%{http_code}'` 会看到"旧口令也能登录"的假象。正确判据：
+> 新口令 → `code:200` 且拿到 token；旧口令 → `code:401` 且无 token。
+>
+> 另外：JWT 无状态，**改密码不会让已签发的 token 失效**（有效期 2h）。怀疑 token 泄露时，除了改密码还要换 `JWT_SECRET` 并重启后端。
+
 ### 7.2 删掉演示数据（可选）
 
 初始化脚本塞了 14 篇演示文章和 6 个分类。推荐在后台文章列表里直接删（会带上关联清理）；要一次性清库就先备份再执行：
