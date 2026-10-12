@@ -195,9 +195,11 @@ curl -s "http://$SERVER_IP/api/web/site-info"   # 安全组放通后才通
 初始化脚本塞了 14 篇演示文章和 6 个分类。推荐在后台文章列表里直接删（会带上关联清理）；要一次性清库就先备份再执行：
 
 ```bash
-$DC exec -T blog-mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction blog' > /tmp/blog-before-clean.sql
+# 注意：docker compose exec 后面接的是**服务名**（本编排里是 mysql），不是容器名 blog-mysql；
+# 写容器名会得到很难懂的报错：service "blog-mysql" is not running
+$DC exec -T mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction blog' > /tmp/blog-before-clean.sql
 
-$DC exec -T blog-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" blog' <<'SQL'
+$DC exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" blog' <<'SQL'
 DELETE FROM comment_reports WHERE comment_id IN (SELECT id FROM comments WHERE article_id BETWEEN 1 AND 14);
 DELETE FROM comment_votes   WHERE comment_id IN (SELECT id FROM comments WHERE article_id BETWEEN 1 AND 14);
 DELETE FROM comments        WHERE article_id BETWEEN 1 AND 14;
@@ -219,22 +221,30 @@ sudo tee /opt/backup/dump.sh >/dev/null <<'EOF'
 set -eo pipefail
 # ↑ pipefail 是关键：没有它，mysqldump 失败会被管道末端 gzip 的成功退出码掩盖，
 #   结果是"每天备份都成功"，实际全是 20 字节的空文件
-cd /opt/inkwell
-DC="docker compose --env-file .env.prod -f docker-compose.prod.yml"
+# 这里用 docker exec + 容器名（blog-mysql）而不是 docker compose exec：
+#   - compose exec 要接服务名（mysql），且依赖 compose 文件/cwd/项目解析
+#   - docker exec 用容器名，在 cron 的最小环境里更稳
 out=/opt/backup/mysql/blog-$(date +%F).sql.gz
-$DC exec -T blog-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines blog' | gzip > "$out"
+docker exec -i blog-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines blog' | gzip > "$out"
 sz=$(stat -c%s "$out")
 [ "$sz" -gt 1024 ] || { echo "备份文件异常小($sz 字节)，视为失败"; exit 1; }
 gzip -t "$out" || { echo "备份文件损坏"; exit 1; }
 tar czf /opt/backup/uploads-$(date +%F).tgz -C /opt/inkwell uploads
 find /opt/backup -type f -mtime +14 -delete
+echo "OK $(date '+%F %T') mysql_dump=$(stat -c%s "$out") bytes"
 EOF
-sudo chmod +x /opt/backup/dump.sh
-(sudo crontab -l 2>/dev/null; echo "30 3 * * * /opt/backup/dump.sh >> /var/log/inkwell-backup.log 2>&1") | sudo crontab -
+sudo chmod 755 /opt/backup/dump.sh
+# 去重安装（重复执行不会叠加）
+( sudo crontab -l 2>/dev/null | grep -v '/opt/backup/dump.sh' ; echo "30 3 * * * /opt/backup/dump.sh >> /var/log/inkwell-backup.log 2>&1" ) | sudo crontab -
+sudo crontab -l
 ```
 
-> 配好后**务必当场验证一次**：`sudo /opt/backup/dump.sh && ls -la /opt/backup/mysql/`，
-> 确认文件是几十 KB 以上而不是 20 字节（空 gzip）。
+> 配好后**务必当场验证**，而且要**连 cron 的最小环境一起验证**（cron 里没有登录时的 PATH）：
+>
+> ```bash
+> sudo env -i PATH=/usr/bin:/bin /opt/backup/dump.sh     # 应输出 OK ... mysql_dump=一万多 bytes
+> ls -la /opt/backup/mysql/                              # 确认是几十 KB，不是 20 字节空 gzip
+> ```
 
 `.env.prod` 和 `uploads/` 也要一起备份（前者丢了 JWT 密钥就换，后者丢了图片就没了）。
 
@@ -293,6 +303,7 @@ git diff --cached | grep -niE "password|secret|token|([0-9]{1,3}\.){3}[0-9]{1,3}
 | 构建报 `[unocss:global:build:scan] cssPlugins.get(...).transform.call is not a function` | `@unocss/nuxt` 被降回 0.58（与 Vite 7 不兼容） | 改回 `^66`（本次已修，勿回退）后重新 build |
 | 构建报 `npm error `npm ci` can only install packages when your package.json and package-lock.json ... are in sync` + `Missing: @rolldown/binding-linux-x64-musl from lock file` | lockfile 是用**比容器更新的 npm**（如本机 npm 12）生成的，缺少多平台可选依赖条目，容器里的 npm 10 不认 | 用与容器一致的 npm 重新生成 lockfile（见下） |
 | 浏览器打不开 80 | 安全组没放通 | 控制台加规则 |
+| `docker compose exec` 报 `service "blog-mysql" is not running`（但 `ps` 显示容器在跑） | `docker compose exec` 接的是**服务名**（本编排里是 `mysql`），不是容器名 `blog-mysql`；写容器名会得到这个误导性报错 | 用 `$DC exec -T mysql`（服务名），或 `docker exec -i blog-mysql`（容器名，cron 里更稳） |
 | **部署/回滚后「API 正常但首页和后台 502」** | nginx 启动时缓存了 upstream 容器 IP，容器重建后 IP 变了（实测会对调），nginx 仍往旧 IP 转发 | 已在 `nginx/nginx.conf` 用 `resolver 127.0.0.11 valid=10s` + `server ... resolve` 修好；若用旧配置，临时 `docker exec blog-nginx nginx -s reload` 即可恢复 |
 | MySQL 反复重启 | 被 OOM 杀 | `docker inspect blog-mysql --format '{{.State.OOMKilled}}'`，调大 mem_limit 或降 buffer pool |
 
@@ -397,10 +408,10 @@ DC="docker compose --env-file .env.prod -f docker-compose.prod.yml"
 set -o pipefail                       # 坑②：不加 pipefail，mysqldump 失败会被 gzip 的退出码掩盖 → 你会得到一个"成功"的空备份
 sudo mkdir -p /opt/backup && sudo chown "$(id -un):$(id -gn)" /opt/backup
 # 注意：docker exec 没有 -T 参数（坑①），-T 是 docker compose exec 的
-$DC exec -T blog-mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines blog' \
+$DC exec -T mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines blog' \
   | gzip > /opt/backup/pre-migrate-$(date +%F-%H%M).sql.gz
 sz=$(stat -c%s /opt/backup/pre-migrate-*.sql.gz | tail -1); [ "$sz" -gt 1024 ] || { echo "备份异常小，别继续"; exit 1; }
-$DC exec -T blog-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" blog' < sql/migrations/你的迁移.sql
+$DC exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" blog' < sql/migrations/你的迁移.sql
 ```
 
 判断是否踩到这个坑：`$DC logs blog-server | grep -iE "schema validation|SchemaManagementException|doesn't exist"`。
