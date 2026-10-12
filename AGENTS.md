@@ -115,16 +115,32 @@ pwsh scripts/deploy.ps1 -Rollback           # 回滚到上一版（:prev 标签�
 
 ```bash
 # 分支（实际使用的两个）
-master            # 发布分支：只接受来自 dev 的 PR 合并（历史上有 PR #1~#13）
-dev               # 日常开发：feature/* / fix/* 合到这里
+master            # 发布分支：**已启用分支保护，只能通过 PR 合并**（历史上有 PR #1~#14）
+dev               # 唯一允许直接提交的分支；feature/* / fix/* 合到这里
 ```
 
-发布流程（**不要**本地快进后直推 master——master 上有 PR 合并提交，本地引用很容易陈旧）：
+> ⚠️ **禁止直接在 master 上改代码/提交**（文档也一样）。master 已开启 GitHub 分支保护：
+> `required_pull_request_reviews`（0 个批准，自己就能合）+ `enforce_admins: true`（连仓库管理员也拦）
+> + 禁止强推与删分支。实测直推会得到：
+>
+> ```
+> remote: error: GH006: Protected branch update failed for refs/heads/master.
+> remote: - Changes must be made through a pull request.
+> ```
+>
+> 查看/临时关闭（**只在紧急情况用，用完立刻恢复**）：
+>
+> ```bash
+> gh api repos/lark5480/inkwell/branches/master/protection --jq '{pr:(.required_pull_request_reviews!=null), admin:.enforce_admins.enabled}'
+> gh api -X DELETE repos/lark5480/inkwell/branches/master/protection
+> ```
+
+发布流程（**不要**本地快进后直推 master——会被保护规则拒绝，且 master 上有 PR 合并提交、本地引用很容易陈旧）：
 
 ```bash
 git fetch --prune                       # 先刷新，再谈能不能快进
 git checkout dev && git status -sb      # ★ 提交前先确认自己在哪个分支
-git add ... && git commit -m "..."      # 日常提交在 dev
+git add ... && git commit -m "..."      # 日常提交只提交到 dev
 git push origin dev
 
 # 上线：开 PR 并合并（单人仓库也别省这一步，合并记录就是发布记录）
