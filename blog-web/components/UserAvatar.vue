@@ -35,15 +35,9 @@ const props = withDefaults(defineProps<{
 
 const imgFailed = ref(false)
 
-// 解析头像 URL：相对路径（/ 开头）补全为后端绝对 URL，支持局域网 IP 访问
+// 头像 URL：/ 开头的相对路径保持同源（由 nginx 转发 /uploads/ 与 /api/ 到后端）
 const avatarUrl = computed(() => {
   if (!props.user.avatar) return null
-  if (props.user.avatar.startsWith('/')) {
-    const base = import.meta.client
-      ? `http://${location.hostname}:8080`
-      : 'http://localhost:8080'
-    return base + props.user.avatar
-  }
   return props.user.avatar
 })
 

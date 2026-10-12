@@ -21,7 +21,14 @@ docker compose build blog-server blog-web blog-admin
 docker compose up -d
 ```
 
-> **注意**：Docker Compose v2 某些版本在构建 Java/Maven 镜像时存在 panic bug（`build_bake.go:312`），直接 `docker compose up -d` 可能失败。方式一不受影响，方式二先 build 再 up 也可绕过。
+> **注意**：Docker Compose v2 的 buildx bake 路径在构建 Java/Maven 镜像时存在 panic bug（`build_bake.go:312`，报 `slice bounds out of range [1:0]`），实测 Compose v2.40.3 + Docker 28.3.3 上 `docker compose build` 与 `docker compose up -d --build` 都会失败。**正确绕过方式是关掉 bake**：
+>
+> ```bash
+> export COMPOSE_BAKE=false
+> docker compose build && docker compose up -d
+> ```
+>
+> 注意"先 build 再 up"并不能绕过（`build` 本身就会 panic）；实在不行就逐个 `docker build`（见 [04-小内存生产部署](04-deploy-tencent-2c2g.md) §5）。
 >
 > **数据库初始化**：MySQL 容器首次启动时自动执行 `sql/init.sql`，无需手动导入。如果要重置数据库，删除数据卷重新创建即可：`docker compose down -v && docker compose up -d mysql`。
 
@@ -158,9 +165,14 @@ nginx -s reload
 
 ```
 /api/     → Spring Boot :8080    (API 代理)
-/admin/   → blog-admin :80       (管理后台)
+/uploads/ → Spring Boot :8080    (本地存储的上传图片，storage.type=local 时使用)
+/admin/   → blog-admin :80       (管理后台，构建时 base=/admin/)
 /         → Nuxt :3000           (前台页面)
 ```
+
+> 浏览器端的所有请求都走同源相对路径（`/api/...`、`/uploads/...`），因此**不需要**把后端的 8080 端口暴露到公网，后续挂 HTTPS 也不会出现混合内容问题。
+
+> 2 核 2G 及以下的小内存服务器，请改用 [04-小内存生产部署](04-deploy-tencent-2c2g.md) 里的精简编排（不带 MinIO + 内存配额 + swap）。
 
 ## 镜像构建
 

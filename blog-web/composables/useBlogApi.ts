@@ -299,10 +299,12 @@ function getAuthHeaders(): Record<string, string> {
 // Composable
 export const useBlogApi = () => {
   const config = useRuntimeConfig()
-  // SSR 直连后端；浏览器端动态取当前主机名（支持局域网访问）
+  // SSR 走 config.apiBase 直连后端（生产用 NUXT_API_BASE 注入）；
+  // 浏览器端统一走同源相对路径 /api，由 nginx（生产）或 devProxy（开发）转发，
+  // 这样无需对外暴露 8080，也能在 HTTPS 下正常工作。
   const apiBase = import.meta.server
     ? config.apiBase + '/api'
-    : `http://${location.hostname}:8080/api`
+    : '/api'
 
   function handleResponse<T>(result: ApiResult<T>): T {
     if (result.code !== 200) {
@@ -515,12 +517,8 @@ export const useBlogApi = () => {
     })
     const result: ApiResult<{ url: string }> = await res.json()
     const data = handleResponse(result)
-    // 如果返回的是相对路径（开发环境 useProxy=true），解析为后端的绝对 URL
-    // 因为 <img> 不受 CORS 限制，可以直接从后端加载
-    if (import.meta.client && data.url.startsWith('/')) {
-      const base = apiBase.replace(/\/api$/, '')
-      data.url = base + data.url
-    }
+    // 后端返回同源相对路径（/uploads/... 或 /api/web/files/...），保持相对路径不变，
+    // 这样写进 Markdown 的图片地址不绑定域名/端口，HTTPS 下也不会混合内容报错
     return data
   }
 
@@ -568,12 +566,7 @@ export const useBlogApi = () => {
       body: formData,
       headers: getAuthHeaders(),
     }).then(handleResponse).then(url => {
-      // 如果返回的是相对路径（开发环境 useProxy=true），解析为后端的绝对 URL
-      // 因为 <img> 不受 CORS 限制，可以直接从后端加载
-      if (import.meta.client && url.startsWith('/')) {
-        const base = apiBase.replace(/\/api$/, '')
-        url = base + url
-      }
+      // 同上：保留同源相对路径，交给 nginx /uploads/ 转发
       return url
     })
   }

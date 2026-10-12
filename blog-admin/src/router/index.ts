@@ -88,7 +88,8 @@ const routes: RouteRecordRaw[] = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  // 与 vite base 保持一致（子路径部署时自动带上 /admin/ 前缀）
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 

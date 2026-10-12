@@ -70,8 +70,17 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://blog-mysql:3306/blog?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_ROOT_PASSWORD:-root123}
+      # application-docker.yml 里 jwt.secret 是无默认值的 ${JWT_SECRET}，必须注入。
+      # ⚠️ 下面这个默认值是仓库里公开的开发占位密钥，仅供本地 docker compose 起服务；
+      #    生产环境（任何公网可访问的机器）必须换成自己的：openssl rand -base64 48
+      #    否则任何人都能拿公开密钥伪造管理员 token —— 生产请直接用 docker-compose.prod.yml
+      - JWT_SECRET=${JWT_SECRET:-ZDNrM2VyaG5sZGtmamh3MmVybGprM2gzNGtsamhmMzRsa2ozNGh3bDNramZoc2xramYzaGxzYWtqZGZoZmxrYWpoMzJsa2ZhamhzZGZsa2Fqc2hkZmxra2FqM2g0bGthanNm}
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      # 正文插图（/api/web/user/articles/upload-image-content）永远存在本地 ./uploads，
+      # 不挂载的话容器一重建图片就全丢，务必持久化
+      - ./uploads:/app/uploads
     networks:
       - blog-network
 
@@ -84,12 +93,18 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NUXT_PUBLIC_API_BASE=http://blog-server:8080/api
+      # SSR 直连后端容器；浏览器端走同源 /api（由 nginx 转发），无需暴露 8080
+      - NUXT_API_BASE=http://blog-server:8080
+      - NUXT_PUBLIC_SITE_URL=${SITE_URL:-http://localhost:3000}
     networks:
       - blog-network
 
   blog-admin:
-    build: ./blog-admin
+    build:
+      context: ./blog-admin
+      args:
+        # 管理后台挂在 /admin/ 子路径下（与 nginx/nginx.conf 的 location /admin/ 对应）
+        VITE_BASE: /admin/
     container_name: blog-admin
     restart: unless-stopped
     depends_on:
