@@ -123,7 +123,7 @@ if (-not $Rollback) {
     & git rev-parse --verify --quiet "$deployedRev^{commit}" > $null 2>&1
     if ($LASTEXITCODE -eq 0) {
       $changed = @(& git diff --name-only $deployedRev 2>$null) + @(& git ls-files --others --exclude-standard 2>$null)
-      $schemaTouched = @($changed | Where-Object { $_ -match '^blog-server/src/main/java/com/blog/entity/' -or $_ -eq 'sql/init.sql' } | Select-Object -Unique)
+      $schemaTouched = @($changed | Where-Object { $_ -match '^blog-server/src/main/java/com/blog/entity/.*\.java$' -or $_ -eq 'sql/init.sql' } | Select-Object -Unique)
       $migrationTouched = @($changed | Where-Object { $_ -match '^sql/migrations/.*\.sql$' } | Select-Object -Unique)
       if ($schemaTouched.Count -gt 0 -and $migrationTouched.Count -eq 0) {
         if ($AllowSchemaChange) {
