@@ -115,11 +115,32 @@ pwsh scripts/deploy.ps1 -Rollback           # 回滚到上一版（:prev 标签�
 
 ```bash
 # 分支（实际使用的两个）
-master            # 发布分支：上线前从 dev 快进合并
+master            # 发布分支：只接受来自 dev 的 PR 合并（历史上有 PR #1~#13）
 dev               # 日常开发：feature/* / fix/* 合到这里
+```
 
-git checkout master && git merge --ff-only dev   # 发布前
+发布流程（**不要**本地快进后直推 master——master 上有 PR 合并提交，本地引用很容易陈旧）：
 
-# commit
+```bash
+git fetch --prune                       # 先刷新，再谈能不能快进
+git checkout dev && git status -sb      # ★ 提交前先确认自己在哪个分支
+git add ... && git commit -m "..."      # 日常提交在 dev
+git push origin dev
+
+# 上线：开 PR 并合并（单人仓库也别省这一步，合并记录就是发布记录）
+gh pr create --base master --head dev --title "..." --body "..."
+gh pr merge <编号> --merge
+
+# 发布：从 master 的提交发，而不是从工作区
+git checkout master && git pull --ff-only
+pwsh scripts/deploy.ps1                 # DEPLOYED 会记录 master@<merge-commit>
+git checkout dev                        # ★ 发完切回来，否则下一次提交会落在 master 上
+```
+
+> 实测踩过：从 master 发布后忘记切回 dev，下一个提交就落在了本地 master 上，
+> 还导致 `gh pr create` 报 "No commits between master and dev"。**提交前 `git status -sb`，发布后切回 dev。**
+
+```bash
+# commit 规范
 feat:|fix:|docs:|refactor:|chore:
 ```
