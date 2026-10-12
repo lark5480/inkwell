@@ -72,6 +72,7 @@ Nginx 统一反向代理入口 → `blog-web` (Nuxt SSR :3000) / `blog-admin` (V
 | [01-快速入门](docs/01-getting-started.md) | 环境要求、本地启动（Docker / 传统）、项目结构、开发规范、API 端点 |
 | [02-系统架构](docs/02-architecture.md) | 整体架构图、后端分层设计、认证流程、前后端关键组件与路由 |
 | [03-部署指南](docs/03-deployment.md) | Docker Compose 与 Nginx 生产部署、环境变量、常见问题排查 |
+| [04-小内存生产部署](docs/04-deploy-tencent-2c2g.md) | 腾讯云轻量 2C2G 上线：swap、精简编排、内存配额、验收与备份 |
 
 附：[设计知识笔记 / 面试 Q&A](docs/notes/interview-qa.md) — 基于某版本代码整理的实现快照，**非权威文档**，仅供参考，准确行为以架构文档和源码为准。
 
