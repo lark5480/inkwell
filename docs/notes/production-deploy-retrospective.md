@@ -61,6 +61,8 @@
 | MySQL 密码"不生效" | 本地跑冒烟时报 `Access denied for user 'root'`，一度以为配置错了 | MySQL **只在数据卷为空时**读 `MYSQL_ROOT_PASSWORD`；那次数据卷是几个月前用老密码 `root123` 初始化的。生产上是新卷所以正常 —— 排障要先问"这个卷是哪次初始化的" |
 | PowerShell 管道 heredoc | 用 `$script \| ssh host 'bash -s'` 时，PowerShell 会把换行写成 CRLF，远端 heredoc 终止符变成 `EOF\r` 匹配不上 | 远端先 `tr -d '\r'`，或者把脚本作为**参数**传（参数不做换行转换） |
 | `docker exec -T` | 报 `unknown shorthand flag: 'T'` | `-T` 是 `docker compose exec` 的参数，`docker exec` 用 `-i` |
+| `docker compose exec` 找不到服务 | 报 `service "blog-mysql" is not running`，但 `ps` 里容器明明是 Up | compose 的 exec 接的是**服务名**（本编排里是 `mysql`），不是容器名（`blog-mysql`）。这个报错误导性极强，一度以为容器真的挂了 |
+| 本地 master 引用陈旧导致误判 | 基于本地 `master` 算出"dev 领先 38 个提交、可快进"，实际 `origin/master` 上有 11 个 "Merge pull request #N from dev" 提交 | 判断分支关系前先 `git fetch --prune`；`--ff-only` 是本地合并，**推送被拒是 git 在保护你**（本次就是靠它避免了强推覆盖 11 个 PR 合并记录） |
 | **空备份假装成功** | 备份脚本"成功"，文件只有 **20 字节**（空 gzip）；`set -e` 完全没拦住 | `cmd \| gzip > f` 的退出码是 gzip 的，mysqldump 失败被吞掉。必须 `set -o pipefail` + 校验文件大小 + `gzip -t`。**没验证过的备份等于没有备份** |
 | `/opt` 不可写 | `mkdir -p /opt/backup` 报 Permission denied | `/opt` 属 root；用 `sudo mkdir` + `sudo chown "$(id -un):$(id -gn)"` |
 
