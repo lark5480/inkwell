@@ -355,9 +355,11 @@ CREATE INDEX `idx_visit_logs_article_id`     ON `visit_logs` (`article_id`);
 INSERT IGNORE INTO `users` (`username`, `password`, `role`, `nickname`, `status`)
 VALUES ('admin', '$2b$10$mMIb00Ixd7f9GRnIcPnoyOw7IVf5FV/1SXpmh22biwRW1k9KU70QG', 'ADMIN', 'Admin', 1);
 
--- Switch root auth to mysql_native_password so DB clients (DBeaver, DataGrip, etc.) can connect without allowPublicKeyRetrieval
-ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'root123';
-FLUSH PRIVILEGES;
+-- 注意：这里刻意不再执行 `ALTER USER 'root'@'%' ... IDENTIFIED WITH mysql_native_password BY 'root123'`。
+-- 那行会把 root 密码硬编码成 root123，导致 .env 里设置的 MYSQL_ROOT_PASSWORD 与实际密码不一致，
+-- 后端连不上库；同时在生产环境留下弱口令。root 密码统一由 MYSQL_ROOT_PASSWORD 控制。
+-- 如果本地工具（DBeaver/DataGrip）连接报 "Public Key Retrieval is not allowed"，
+-- 在客户端连接串里加 allowPublicKeyRetrieval=true 即可，无需改数据库认证插件。
 
 -- Categories
 INSERT IGNORE INTO `categories` (`id`, `name`, `slug`, `description`, `sort`) VALUES

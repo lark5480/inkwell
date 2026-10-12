@@ -21,6 +21,12 @@ uploads/
 .env
 .env.local
 .env.*.local
+.env.prod
+!.env.example
+!.env.prod.example
+
+# TLS 证书（生产用，切勿入库）
+nginx/certs/
 
 # IDE
 .idea/

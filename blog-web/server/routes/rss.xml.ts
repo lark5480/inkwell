@@ -1,8 +1,10 @@
 import type { ArticleWebResponse, SiteInfoResponse } from '../../composables/useBlogApi'
 
 export default defineEventHandler(async (event) => {
-  const siteUrl = 'http://localhost:3000'
-  const apiBase = 'http://localhost:8080/api'
+  const config = useRuntimeConfig(event)
+  // 站点地址与后端地址都走运行时配置，生产用 NUXT_PUBLIC_SITE_URL / NUXT_API_BASE 注入
+  const siteUrl = (config.public.siteUrl || 'http://localhost:3000').replace(/\/+$/, '')
+  const apiBase = `${config.apiBase}/api`
 
   async function fetchJSON<T>(url: string): Promise<T> {
     const response = await fetch(url)

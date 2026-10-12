@@ -13,10 +13,10 @@ const USER_KEY = 'blog_user_info'
 
 export const useAuth = () => {
   const config = useRuntimeConfig()
-  // 跟 useBlogApi 保持一致: SSR 直连 8080，浏览器端动态取主机名
+  // 跟 useBlogApi 保持一致: SSR 直连后端，浏览器端走同源相对路径
   const apiBase = import.meta.server
     ? config.apiBase + '/api/web/auth'
-    : `http://${location.hostname}:8080/api/web/auth`
+    : '/api/web/auth'
 
   const token = useState<string>(TOKEN_KEY, () => '')
   const user = useState<UserInfo | null>('blog_user', () => null)

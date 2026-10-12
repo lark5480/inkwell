@@ -95,17 +95,8 @@ const userMenuOpen = ref(false)
 // Shared unread count — notifications page can decrement directly
 const unreadCount = useState<number>('notif_unread_count', () => 0)
 
-// 导航栏头像 URL：相对路径补全为后端绝对 URL
-const navAvatarUrl = computed(() => {
-  if (!user.value?.avatar) return null
-  if (user.value.avatar.startsWith('/')) {
-    const base = import.meta.client
-      ? `http://${location.hostname}:8080`
-      : 'http://localhost:8080'
-    return base + user.value.avatar
-  }
-  return user.value.avatar
-})
+// 导航栏头像 URL：保持同源相对路径（nginx 转发到后端）
+const navAvatarUrl = computed(() => user.value?.avatar || null)
 
 function handleLogout() {
   userMenuOpen.value = false

@@ -1,14 +1,12 @@
 /**
  * 图片 URL 解析工具。
- * 将相对路径（/ 开头）补全为后端绝对 URL，支持局域网 IP 访问。
+ * 后端返回的 / 开头相对路径保持同源相对路径（由 nginx 转发到后端），
+ * SSR 与浏览器端结果一致，也支持后续挂 HTTPS 域名。
  */
 export function resolveImageUrl(url: string | undefined | null): string | null {
   if (!url) return null
   if (url.startsWith('/')) {
-    const base = import.meta.client
-      ? `http://${location.hostname}:8080`
-      : 'http://localhost:8080'
-    return base + url
+    return url
   }
   return url
 }

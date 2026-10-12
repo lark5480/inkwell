@@ -1,0 +1,7 @@
+# 这些文件会被直接送进 Linux 容器使用，强制以 LF 存储/检出，
+# 避免 Windows 上检出成 CRLF 后通过 tar/scp 传到服务器导致容器内解析异常。
+*.sh       text eol=lf
+*.conf     text eol=lf
+Dockerfile text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf

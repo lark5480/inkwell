@@ -1,0 +1,181 @@
+# ============================================================================
+# Inkwell 生产编排（面向腾讯云轻量 2C2G 的精简版）
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# 与 docker-compose.yml（开发/全量版）的关键差异：
+#   1. 不启用 MinIO：改用本地磁盘存储（STORAGE_TYPE=local），省 200~300MB 内存，
+#      图片由后端 /uploads/** 提供，宿主目录 ./uploads 持久化
+#   2. MySQL / Redis 不再映射到宿主机端口，只在容器内部网络可见（安全）
+#   3. 补齐 JWT_SECRET（原 compose 缺失会导致后端起不来）
+#   4. 注入 NUXT_API_BASE（原 compose 写的是 NUXT_PUBLIC_API_BASE，SSR 拿不到）
+#   5. 每个容器限制内存 + 日志轮转，避免 2G 机器 OOM / 磁盘打满
+#
+# 首次部署前请：cp .env.prod.example .env.prod 并改掉里面的密钥
+# ============================================================================
+
+name: inkwell
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: blog-mysql
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env.prod 中设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: blog
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 只在数据卷为空（首次启动）时执行，用于建表 + 种子数据
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=128M
+      - --performance-schema=OFF
+      - --max-connections=50
+      - --table-open-cache=64
+      - --innodb-redo-log-capacity=67108864
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    networks:
+      - blog-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: blog-redis
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redis_data:/data
+    mem_limit: 160m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - blog-network
+
+  blog-server:
+    build: ./blog-server
+    container_name: blog-server
+    restart: unless-stopped
+    logging: *default-logging
+    stop_grace_period: 45s
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://blog-mysql:3306/blog?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # docker profile 里是 ${JWT_SECRET}（无默认值），必须注入，否则启动即失败
+      JWT_SECRET: ${JWT_SECRET:?请在 .env.prod 中设置 JWT_SECRET}
+      # 覆盖 application-docker.yml 的 blog.storage.type=minio，改用本地磁盘
+      BLOG_STORAGE_TYPE: local
+      # 2C2G 机器：固定堆大小，避免默认按物理内存取 1/4 导致 OOM
+      JAVA_TOOL_OPTIONS: "-Xms192m -Xmx448m -XX:MaxMetaspaceSize=192m -Xss512k -XX:+UseSerialGC -Duser.timezone=Asia/Shanghai -Dfile.encoding=UTF-8"
+    volumes:
+      # 上传的图片持久化到宿主机，容器重建不丢
+      - ./uploads:/app/uploads
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/api/web/site-info || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - blog-network
+
+  blog-web:
+    build:
+      context: ./blog-web
+      args:
+        # 国内服务器走镜像加速，构建快很多；想用官方源就设 NPM_REGISTRY=https://registry.npmjs.org
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+    container_name: blog-web
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      blog-server:
+        condition: service_started
+    environment:
+      # SSR 直连后端（容器网络内的服务名），浏览器端走同源 /api 由 nginx 转发
+      NUXT_API_BASE: http://blog-server:8080
+      # RSS / sitemap 里的绝对地址，在 .env.prod 里改成你的公网地址或域名
+      NUXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost}
+      NODE_OPTIONS: --max-old-space-size=256
+    mem_limit: 384m
+    networks:
+      - blog-network
+
+  blog-admin:
+    build:
+      context: ./blog-admin
+      args:
+        # 管理后台挂在 /admin/ 子路径下
+        VITE_BASE: /admin/
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+    container_name: blog-admin
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      blog-server:
+        condition: service_started
+    mem_limit: 64m
+    networks:
+      - blog-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: blog-nginx
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      # 默认 80；本地验证或前面还有一层反代时可用 NGINX_HTTP_PORT 覆盖
+      - "${NGINX_HTTP_PORT:-80}:80"
+      # 配好证书后打开 443（见 nginx/nginx.conf 里的注释块）
+      # - "443:443"
+    depends_on:
+      - blog-web
+      - blog-admin
+      - blog-server
+    mem_limit: 64m
+    networks:
+      - blog-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  blog-network:
+    driver: bridge
