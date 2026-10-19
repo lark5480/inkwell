@@ -48,6 +48,9 @@ class ViewCountFlushTaskTest {
     @BeforeEach
     void setUp() {
         given(redisTemplate.opsForHash()).willReturn(hashOperations);
+        // flushHash 第 0 步会先确认源 key 存在；默认视为存在，让用例走到 RENAME 分支
+        given(redisTemplate.hasKey(CacheNames.VIEW_COUNT_HASH)).willReturn(true);
+        given(redisTemplate.hasKey(CacheNames.LIKE_COUNT_HASH)).willReturn(true);
         task = new ViewCountFlushTask(redisTemplate, countFlushService);
     }
 
@@ -82,6 +85,19 @@ class ViewCountFlushTaskTest {
             verify(countFlushService, never()).flushCounts(any(), anyBoolean(), anyString(), anyBoolean());
             // 不应设置 TTL
             verify(redisTemplate, never()).expire(anyString(), eq(10L), eq(TimeUnit.MINUTES));
+        }
+
+        @Test
+        @DisplayName("should skip before rename when the source hash does not exist")
+        void shouldSkip_whenSourceHashIsAbsent() {
+            given(redisTemplate.hasKey(CacheNames.VIEW_COUNT_HASH)).willReturn(false);
+            given(redisTemplate.hasKey(CacheNames.LIKE_COUNT_HASH)).willReturn(false);
+
+            task.flushViewAndLikeCount();
+
+            // 源 key 不存在时不能 RENAME（Redis 会报 ERR no such key），应直接返回
+            verify(redisTemplate, never()).renameIfAbsent(anyString(), anyString());
+            verify(countFlushService, never()).flushCounts(any(), anyBoolean(), anyString(), anyBoolean());
         }
 
         @Test
