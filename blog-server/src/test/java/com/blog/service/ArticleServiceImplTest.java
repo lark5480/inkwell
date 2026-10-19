@@ -423,11 +423,9 @@ class ArticleServiceImplTest {
         given(cb.createQuery(Article.class)).willReturn(cq);
         given(cq.from(Article.class)).willReturn(root);
         doReturn(fetch).when(root).fetch("category", JoinType.LEFT);
-        doReturn(fetch).when(root).fetch("tags", JoinType.LEFT);
         doReturn(fetch).when(root).fetch("user", JoinType.LEFT);
         given(cb.equal(root.get("isDeleted"), false)).willReturn(mock(Predicate.class));
         given(cq.where(any(Predicate[].class))).willReturn(cq);
-        given(cq.distinct(true)).willReturn(cq);
         doReturn(cq).when(cq).orderBy((Order) null);
 
         // Count query
