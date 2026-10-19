@@ -117,7 +117,7 @@ personal-blog/
 │   ├── composables/   # useAuth, useBlogApi, useTheme
 │   ├── middleware/     # auth.ts (认证守卫)
 │   ├── layouts/       # default.vue 布局
-│   └── server/        # RSS 等服务端路由
+│   └── server/        # 服务端路由（本地存储图片 /uploads/**）
 │
 ├── blog-admin/        # Vue 3 + Element Plus B端 SPA (端口 3001)
 │   ├── src/

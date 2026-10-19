@@ -134,7 +134,7 @@ components/
   ├── MoreMenu.vue          # 三点菜单
   └── SharePopover.vue      # 分享面板
 server/routes/
-  └── rss.xml.ts            # RSS Feed 生成
+  └── uploads/[...path].ts  # 本地存储模式下的图片读取（RSS/Sitemap 已统一到后端）
 ```
 
 ### 认证

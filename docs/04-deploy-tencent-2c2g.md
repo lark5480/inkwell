@@ -114,7 +114,7 @@ vim .env.prod
 |------|------|
 | `MYSQL_ROOT_PASSWORD` | 首次启动时写入 MySQL。**之后改这里不会改库里已有密码**，两边必须一致 |
 | `JWT_SECRET` | 后端 `application-docker.yml` 里是无默认值的 `${JWT_SECRET}`，缺了直接启动失败 |
-| `SITE_URL` | 只影响 RSS 里的绝对链接，填 `http://$SERVER_IP`（以后有域名就换成域名） |
+| `SITE_URL` | 注入给 blog-server（`blog.site-url`），决定 RSS / Sitemap 里的绝对链接，填 `http://$SERVER_IP`（以后有域名就换成域名）；缺省回落到 `http://localhost`，链接会是错的 |
 
 ## 5. 构建与启动
 

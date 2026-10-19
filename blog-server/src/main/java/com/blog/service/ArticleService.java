@@ -122,16 +122,20 @@ public interface ArticleService {
     /**
      * 生成RSS订阅内容
      *
+     * @param siteUrl 站点对外绝对地址（RSS 里的 link/guid 必须是绝对 URL）
+     * @param siteTitle 站点标题
+     * @param siteDescription 站点描述
      * @return RSS XML字符串
      */
-    String generateRss();
+    String generateRss(String siteUrl, String siteTitle, String siteDescription);
 
     /**
      * 生成站点地图
      *
+     * @param siteUrl 站点对外绝对地址
      * @return Sitemap XML字符串
      */
-    String generateSitemap();
+    String generateSitemap(String siteUrl);
 
     /**
      * 分页查询用户浏览历史

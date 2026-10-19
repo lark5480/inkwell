@@ -98,6 +98,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?请在 .env.prod 中设置 JWT_SECRET}
       # 覆盖 application-docker.yml 的 blog.storage.type=minio，改用本地磁盘
       BLOG_STORAGE_TYPE: local
+      # RSS / Sitemap 里的绝对地址（原来由 blog-web 的 RSS 路由持有，现统一到后端）
+      SITE_URL: ${SITE_URL:-http://localhost}
       # 2C2G 机器：固定堆大小，避免默认按物理内存取 1/4 导致 OOM
       JAVA_TOOL_OPTIONS: "-Xms192m -Xmx448m -XX:MaxMetaspaceSize=192m -Xss512k -XX:+UseSerialGC -Duser.timezone=Asia/Shanghai -Dfile.encoding=UTF-8"
     volumes:
@@ -128,8 +130,6 @@ services:
     environment:
       # SSR 直连后端（容器网络内的服务名），浏览器端走同源 /api 由 nginx 转发
       NUXT_API_BASE: http://blog-server:8080
-      # RSS / sitemap 里的绝对地址，在 .env.prod 里改成你的公网地址或域名
-      NUXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost}
       NODE_OPTIONS: --max-old-space-size=256
     mem_limit: 384m
     networks:
