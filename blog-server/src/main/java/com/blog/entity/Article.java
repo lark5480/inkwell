@@ -17,6 +17,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
@@ -79,6 +80,7 @@ public class Article extends BaseEntity {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @BatchSize(size = 50)
     @ManyToMany
     @JoinTable(name = "article_tags",
             joinColumns = @JoinColumn(name = "article_id"),

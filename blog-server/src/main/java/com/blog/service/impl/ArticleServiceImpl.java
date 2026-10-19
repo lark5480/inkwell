@@ -3,6 +3,7 @@ package com.blog.service.impl;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -129,6 +130,7 @@ public class ArticleServiceImpl implements ArticleService {
      * 后台：分页查询文章列表（支持关键字/分类/状态筛选）
      */
     @Override
+    @Transactional(readOnly = true)
     public PageDTO<ArticleAdminResponse> getAdminArticlePage(int page, int pageSize, String keyword, Long categoryId, String status) {
         log.info("后台查询文章列表 page={} keyword={} categoryId={} status={}", page, keyword, categoryId, status);
         Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createTime"));
@@ -137,7 +139,6 @@ public class ArticleServiceImpl implements ArticleService {
         CriteriaQuery<Article> cq = cb.createQuery(Article.class);
         Root<Article> root = cq.from(Article.class);
         root.fetch("category", JoinType.LEFT);
-        root.fetch("tags", JoinType.LEFT);
         root.fetch("user", JoinType.LEFT);
 
         List<Predicate> predicates = new ArrayList<>();
@@ -157,7 +158,6 @@ public class ArticleServiceImpl implements ArticleService {
         }
 
         cq.where(predicates.toArray(new Predicate[0]));
-        cq.distinct(true);
         cq.orderBy(cb.desc(root.get("createTime")));
 
         // Count query
@@ -402,6 +402,7 @@ public class ArticleServiceImpl implements ArticleService {
     @Override
     @Cacheable(value = CacheNames.ARTICLE_LIST,
             key = "#page + ':' + #pageSize + ':' + (#categoryId == null ? 'all' : #categoryId) + ':' + (#tagSlug == null ? 'all' : #tagSlug)")
+    @Transactional(readOnly = true)
     public PageDTO<ArticleWebResponse> getPublishedArticles(int page, int pageSize, Long categoryId, String tagSlug) {
         log.info("C端查询文章列表 page={} categoryId={} tagSlug={}", page, categoryId, tagSlug);
         Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "isTop", "publishedAt"));
@@ -411,7 +412,6 @@ public class ArticleServiceImpl implements ArticleService {
         Root<Article> root = cq.from(Article.class);
         root.fetch("user", JoinType.LEFT);
         root.fetch("category", JoinType.LEFT);
-        root.fetch("tags", JoinType.LEFT);
 
         List<Predicate> predicates = new ArrayList<>();
         predicates.add(cb.equal(root.get("isDeleted"), false));
@@ -426,7 +426,6 @@ public class ArticleServiceImpl implements ArticleService {
         }
 
         cq.where(predicates.toArray(new Predicate[0]));
-        cq.distinct(true);
         cq.orderBy(cb.desc(root.get("isTop")), cb.desc(root.get("publishedAt")));
 
         // Count
@@ -467,6 +466,7 @@ public class ArticleServiceImpl implements ArticleService {
      */
     @Override
     @Cacheable(value = CacheNames.FEATURED)
+    @Transactional(readOnly = true)
     public List<ArticleWebResponse> getFeaturedArticles() {
         log.info("获取精选文章列表");
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -476,13 +476,11 @@ public class ArticleServiceImpl implements ArticleService {
         Root<Article> featuredRoot = featuredQuery.from(Article.class);
         featuredRoot.fetch("user", JoinType.LEFT);
         featuredRoot.fetch("category", JoinType.LEFT);
-        featuredRoot.fetch("tags", JoinType.LEFT);
         featuredQuery.where(
                 cb.equal(featuredRoot.get("isDeleted"), false),
                 cb.equal(featuredRoot.get("status"), "PUBLISHED"),
                 cb.equal(featuredRoot.get("isFeatured"), true)
         );
-        featuredQuery.distinct(true);
         featuredQuery.orderBy(cb.desc(featuredRoot.get("publishedAt")));
 
         List<Article> manual = entityManager.createQuery(featuredQuery)
@@ -499,7 +497,6 @@ public class ArticleServiceImpl implements ArticleService {
             Root<Article> popularRoot = popularQuery.from(Article.class);
             popularRoot.fetch("user", JoinType.LEFT);
             popularRoot.fetch("category", JoinType.LEFT);
-            popularRoot.fetch("tags", JoinType.LEFT);
 
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(popularRoot.get("isDeleted"), false));
@@ -509,7 +506,6 @@ public class ArticleServiceImpl implements ArticleService {
             }
 
             popularQuery.where(predicates.toArray(new Predicate[0]));
-            popularQuery.distinct(true);
             // 热度排序：按 viewCount 降序为主，likeCount、commentCount 为辅
             // popularQuery.orderBy(
             //         cb.desc(popularRoot.get("viewCount")),
@@ -682,6 +678,7 @@ public class ArticleServiceImpl implements ArticleService {
      * 支持 Redis 缓存（5 分钟 TTL）和搜索性能统计。
      */
     @Override
+    @Transactional(readOnly = true)
     public PageDTO<ArticleWebResponse> searchArticles(String keyword, int page, int pageSize) {
         long startTime = System.nanoTime();
         boolean cacheHit = false;
@@ -801,8 +798,6 @@ public class ArticleServiceImpl implements ArticleService {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Article> cq = cb.createQuery(Article.class);
         Root<Article> root = cq.from(Article.class);
-        root.fetch("category", JoinType.LEFT);
-        root.fetch("tags", JoinType.LEFT);
 
         cq.where(
                 cb.equal(root.get("isDeleted"), false),
@@ -858,7 +853,9 @@ public class ArticleServiceImpl implements ArticleService {
                 xml.append("      <description>").append(escapeXml(article.getSummary())).append("</description>\n");
             }
             if (article.getPublishedAt() != null) {
-                xml.append("      <pubDate>").append(article.getPublishedAt().format(DateTimeFormatter.RFC_1123_DATE_TIME)).append("</pubDate>\n");
+                xml.append("      <pubDate>")
+                        .append(article.getPublishedAt().atZone(ZoneId.of("Asia/Shanghai")).format(DateTimeFormatter.RFC_1123_DATE_TIME))
+                        .append("</pubDate>\n");
             }
             xml.append("    </item>\n");
         }

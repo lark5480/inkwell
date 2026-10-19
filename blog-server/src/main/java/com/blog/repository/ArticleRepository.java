@@ -15,11 +15,11 @@ import java.util.Optional;
 @Repository
 public interface ArticleRepository extends JpaRepository<Article, Long> {
 
-    @Query(value = "SELECT DISTINCT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category LEFT JOIN FETCH a.tags WHERE a.status = :status AND a.isDeleted = :isDeleted",
+    @Query(value = "SELECT a FROM Article a WHERE a.status = :status AND a.isDeleted = :isDeleted",
            countQuery = "SELECT COUNT(a) FROM Article a WHERE a.status = :status AND a.isDeleted = :isDeleted")
     Page<Article> findByStatusAndIsDeleted(@Param("status") String status, @Param("isDeleted") Boolean isDeleted, Pageable pageable);
 
-    @Query(value = "SELECT DISTINCT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category LEFT JOIN FETCH a.tags WHERE a.category.id = :categoryId AND a.status = :status AND a.isDeleted = :isDeleted",
+    @Query(value = "SELECT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category WHERE a.category.id = :categoryId AND a.status = :status AND a.isDeleted = :isDeleted",
            countQuery = "SELECT COUNT(a) FROM Article a WHERE a.category.id = :categoryId AND a.status = :status AND a.isDeleted = :isDeleted")
     Page<Article> findByCategoryIdAndStatusAndIsDeleted(@Param("categoryId") Long categoryId, @Param("status") String status, @Param("isDeleted") Boolean isDeleted, Pageable pageable);
 
@@ -50,19 +50,19 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("UPDATE Article a SET a.likeCount = a.likeCount + :delta WHERE a.id = :id")
     void addLikeCount(@Param("id") Long id, @Param("delta") int delta);
 
-    @Query(value = "SELECT DISTINCT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category LEFT JOIN FETCH a.tags WHERE a.user.id = :userId",
+    @Query(value = "SELECT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category WHERE a.user.id = :userId",
            countQuery = "SELECT COUNT(a) FROM Article a WHERE a.user.id = :userId")
     Page<Article> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
-    @Query(value = "SELECT DISTINCT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category LEFT JOIN FETCH a.tags WHERE a.user.id = :userId AND a.status = :status",
+    @Query(value = "SELECT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category WHERE a.user.id = :userId AND a.status = :status",
            countQuery = "SELECT COUNT(a) FROM Article a WHERE a.user.id = :userId AND a.status = :status")
     Page<Article> findByUserIdAndStatus(@Param("userId") Long userId, @Param("status") String status, Pageable pageable);
 
-    @Query(value = "SELECT DISTINCT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category LEFT JOIN FETCH a.tags WHERE a.user.id = :userId AND (a.title LIKE %:keyword% OR a.summary LIKE %:keyword%)",
+    @Query(value = "SELECT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category WHERE a.user.id = :userId AND (a.title LIKE %:keyword% OR a.summary LIKE %:keyword%)",
            countQuery = "SELECT COUNT(a) FROM Article a WHERE a.user.id = :userId AND (a.title LIKE %:keyword% OR a.summary LIKE %:keyword%)")
     Page<Article> findByUserIdAndKeyword(@Param("userId") Long userId, @Param("keyword") String keyword, Pageable pageable);
 
-    @Query(value = "SELECT DISTINCT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category LEFT JOIN FETCH a.tags WHERE a.user.id = :userId AND a.status = :status AND (a.title LIKE %:keyword% OR a.summary LIKE %:keyword%)",
+    @Query(value = "SELECT a FROM Article a LEFT JOIN FETCH a.user LEFT JOIN FETCH a.category WHERE a.user.id = :userId AND a.status = :status AND (a.title LIKE %:keyword% OR a.summary LIKE %:keyword%)",
            countQuery = "SELECT COUNT(a) FROM Article a WHERE a.user.id = :userId AND a.status = :status AND (a.title LIKE %:keyword% OR a.summary LIKE %:keyword%)")
     Page<Article> findByUserIdAndStatusAndKeyword(@Param("userId") Long userId, @Param("status") String status, @Param("keyword") String keyword, Pageable pageable);
 
