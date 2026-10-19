@@ -465,21 +465,52 @@ class ArticleServiceImplTest {
         assertThat(result.records().get(0).title()).isEqualTo("Test");
     }
 
-    // ========== generateRss ==========
+    // ========== generateRss / generateSitemap ==========
 
-    @Test
-    void generateRss_shouldFormatPubDateWithTimezone() {
-        Article article = Article.builder()
+    private Article feedArticle() {
+        return Article.builder()
                 .id(1L).title("Test").slug("test")
                 .summary("Summary").status("PUBLISHED")
                 .publishedAt(LocalDateTime.of(2026, 4, 20, 12, 0))
                 .build();
+    }
 
+    @Test
+    void generateRss_shouldFormatPubDateWithTimezone() {
         given(articleRepository.findByStatusAndIsDeleted(eq("PUBLISHED"), eq(false), any(Pageable.class)))
-                .willReturn(new PageImpl<>(List.of(article)));
+                .willReturn(new PageImpl<>(List.of(feedArticle())));
 
-        String rss = articleService.generateRss();
+        String rss = articleService.generateRss("https://inkwell.dev", "Inkwell", "个人博客");
 
         assertThat(rss).contains("<pubDate>Mon, 20 Apr 2026 12:00:00 +0800</pubDate>");
+    }
+
+    /** 防回归：站点标题/描述/地址曾长期是硬编码的 "Blog" 与 blog.example.com，接线到配置后不能再退化 */
+    @Test
+    void generateRss_shouldUseInjectedSiteInfoAndStripTrailingSlash() {
+        given(articleRepository.findByStatusAndIsDeleted(eq("PUBLISHED"), eq(false), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(feedArticle())));
+
+        String rss = articleService.generateRss("https://inkwell.dev/", "Inkwell", "个人博客");
+
+        assertThat(rss)
+                .contains("<title>Inkwell</title>")
+                .contains("<link>https://inkwell.dev</link>")
+                .contains("<link>https://inkwell.dev/article/test</link>")
+                .contains("<atom:link href=\"https://inkwell.dev/rss.xml\"")
+                .doesNotContain("blog.example.com");
+    }
+
+    @Test
+    void generateSitemap_shouldUseInjectedSiteUrl() {
+        given(articleRepository.findByStatusAndIsDeleted(eq("PUBLISHED"), eq(false), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(feedArticle())));
+
+        String sitemap = articleService.generateSitemap("https://inkwell.dev/");
+
+        assertThat(sitemap)
+                .contains("<loc>https://inkwell.dev</loc>")
+                .contains("<loc>https://inkwell.dev/article/test</loc>")
+                .doesNotContain("blog.example.com");
     }
 }

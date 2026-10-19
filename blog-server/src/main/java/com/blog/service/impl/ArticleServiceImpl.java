@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -81,6 +82,9 @@ import jakarta.persistence.criteria.Root;
 public class ArticleServiceImpl implements ArticleService {
 
     private static final Logger log = LoggerFactory.getLogger(ArticleServiceImpl.class);
+
+    /** 文章的 publishedAt 是无时区的本地时间（库与 JVM 都按东八区写入），RFC-1123 需要偏移量才能格式化 */
+    private static final ZoneId SITE_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
@@ -824,37 +828,40 @@ public class ArticleServiceImpl implements ArticleService {
      * 生成 RSS Feed XML（取最近 20 篇已发布文章）
      */
     @Override
-    public String generateRss() {
+    public String generateRss(String siteUrl, String siteTitle, String siteDescription) {
         List<Article> articles = articleRepository.findByStatusAndIsDeleted("PUBLISHED", false,
                         PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "publishedAt")))
                 .getContent();
 
-        String siteTitle = "Blog";
-        String siteDescription = "Personal Blog";
-        String siteUrl = "https://blog.example.com";
+        String base = normalizeBaseUrl(siteUrl);
+        String title = siteTitle == null || siteTitle.isBlank() ? "Blog" : siteTitle;
+        String description = siteDescription == null || siteDescription.isBlank() ? "Personal Blog" : siteDescription;
 
         StringBuilder xml = new StringBuilder();
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         xml.append("<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n");
         xml.append("  <channel>\n");
-        xml.append("    <title>").append(escapeXml(siteTitle)).append("</title>\n");
-        xml.append("    <link>").append(escapeXml(siteUrl)).append("</link>\n");
-        xml.append("    <description>").append(escapeXml(siteDescription)).append("</description>\n");
+        xml.append("    <title>").append(escapeXml(title)).append("</title>\n");
+        xml.append("    <link>").append(escapeXml(base)).append("</link>\n");
+        xml.append("    <description>").append(escapeXml(description)).append("</description>\n");
         xml.append("    <language>zh-CN</language>\n");
-        xml.append("    <atom:link href=\"").append(escapeXml(siteUrl)).append("/rss.xml\" rel=\"self\" type=\"application/rss+xml\"/>\n");
+        xml.append("    <lastBuildDate>")
+                .append(ZonedDateTime.now(SITE_ZONE).format(DateTimeFormatter.RFC_1123_DATE_TIME))
+                .append("</lastBuildDate>\n");
+        xml.append("    <atom:link href=\"").append(escapeXml(base)).append("/rss.xml\" rel=\"self\" type=\"application/rss+xml\"/>\n");
 
         /* 遍历文章生成 RSS 条目 */
         for (Article article : articles) {
             xml.append("    <item>\n");
             xml.append("      <title>").append(escapeXml(article.getTitle())).append("</title>\n");
-            xml.append("      <link>").append(escapeXml(siteUrl)).append("/article/").append(escapeXml(article.getSlug())).append("</link>\n");
-            xml.append("      <guid>").append(escapeXml(siteUrl)).append("/article/").append(escapeXml(article.getSlug())).append("</guid>\n");
+            xml.append("      <link>").append(escapeXml(base)).append("/article/").append(escapeXml(article.getSlug())).append("</link>\n");
+            xml.append("      <guid>").append(escapeXml(base)).append("/article/").append(escapeXml(article.getSlug())).append("</guid>\n");
             if (article.getSummary() != null) {
                 xml.append("      <description>").append(escapeXml(article.getSummary())).append("</description>\n");
             }
             if (article.getPublishedAt() != null) {
                 xml.append("      <pubDate>")
-                        .append(article.getPublishedAt().atZone(ZoneId.of("Asia/Shanghai")).format(DateTimeFormatter.RFC_1123_DATE_TIME))
+                        .append(article.getPublishedAt().atZone(SITE_ZONE).format(DateTimeFormatter.RFC_1123_DATE_TIME))
                         .append("</pubDate>\n");
             }
             xml.append("    </item>\n");
@@ -866,8 +873,8 @@ public class ArticleServiceImpl implements ArticleService {
     }
 
     @Override
-    public String generateSitemap() {
-        String siteUrl = "https://blog.example.com";
+    public String generateSitemap(String siteUrl) {
+        String base = normalizeBaseUrl(siteUrl);
         List<Article> articles = articleRepository.findByStatusAndIsDeleted("PUBLISHED", false,
                 PageRequest.of(0, 1000, Sort.by(Sort.Direction.DESC, "publishedAt"))).getContent();
 
@@ -877,7 +884,7 @@ public class ArticleServiceImpl implements ArticleService {
 
         // Homepage
         xml.append("  <url>\n");
-        xml.append("    <loc>").append(siteUrl).append("</loc>\n");
+        xml.append("    <loc>").append(escapeXml(base)).append("</loc>\n");
         xml.append("    <changefreq>daily</changefreq>\n");
         xml.append("    <priority>1.0</priority>\n");
         xml.append("  </url>\n");
@@ -891,7 +898,7 @@ public class ArticleServiceImpl implements ArticleService {
         };
         for (String[] p : staticPages) {
             xml.append("  <url>\n");
-            xml.append("    <loc>").append(siteUrl).append(p[0]).append("</loc>\n");
+            xml.append("    <loc>").append(escapeXml(base)).append(p[0]).append("</loc>\n");
             xml.append("    <changefreq>").append(p[1]).append("</changefreq>\n");
             xml.append("    <priority>").append(p[2]).append("</priority>\n");
             xml.append("  </url>\n");
@@ -900,7 +907,7 @@ public class ArticleServiceImpl implements ArticleService {
         // Articles
         for (Article article : articles) {
             xml.append("  <url>\n");
-            xml.append("    <loc>").append(siteUrl).append("/article/").append(escapeXml(article.getSlug())).append("</loc>\n");
+            xml.append("    <loc>").append(escapeXml(base)).append("/article/").append(escapeXml(article.getSlug())).append("</loc>\n");
             LocalDateTime lastMod = article.getUpdateTime() != null ? article.getUpdateTime()
                     : (article.getPublishedAt() != null ? article.getPublishedAt() : article.getCreateTime());
             if (lastMod != null) {
@@ -1000,6 +1007,11 @@ public class ArticleServiceImpl implements ArticleService {
     /** 转换为上下篇 DTO */
     private PrevNextItem toPrevNextItem(Article article) {
         return new PrevNextItem(article.getId(), article.getTitle(), article.getSlug());
+    }
+
+    /** 站点地址可能带尾斜杠，拼出的 link/loc 不能出现双斜杠 */
+    private String normalizeBaseUrl(String siteUrl) {
+        return siteUrl.replaceAll("/+$", "");
     }
 
     /** XML 转义 */

@@ -16,11 +16,6 @@ export default defineNuxtConfig({
     // Server-only: SSR 时 $fetch 直连后端。
     // 生产环境用 NUXT_API_BASE=http://blog-server:8080 覆盖（容器内服务名）
     apiBase: 'http://localhost:8080',
-    public: {
-      // 站点对外地址，仅用于 RSS 等需要绝对 URL 的场景
-      // 生产环境用 NUXT_PUBLIC_SITE_URL=https://blog.example.com 覆盖
-      siteUrl: 'http://localhost:3000',
-    },
   },
 
   devServer: {

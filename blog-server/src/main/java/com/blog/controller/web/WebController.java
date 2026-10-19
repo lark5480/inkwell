@@ -8,6 +8,7 @@ import com.blog.dto.SiteInfoResponse;
 import com.blog.service.ArticleService;
 import com.blog.service.SettingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,6 +26,10 @@ public class WebController {
 
     private final ArticleService articleService;
     private final SettingService settingService;
+
+    /** RSS / Sitemap 的 link 必须是绝对地址，由 SITE_URL 注入，不再硬编码占位域名 */
+    @Value("${blog.site-url:http://localhost}")
+    private String siteUrl;
 
     /**
      * 搜索文章
@@ -72,7 +77,8 @@ public class WebController {
      */
     @GetMapping(value = "/rss.xml", produces = "application/rss+xml")
     public String rss() {
-        return articleService.generateRss();
+        SiteInfoResponse siteInfo = settingService.getSiteInfo();
+        return articleService.generateRss(siteUrl, siteInfo.siteTitle(), siteInfo.siteDescription());
     }
 
     /**
@@ -82,6 +88,6 @@ public class WebController {
      */
     @GetMapping(value = "/sitemap.xml", produces = "application/xml")
     public String sitemap() {
-        return articleService.generateSitemap();
+        return articleService.generateSitemap(siteUrl);
     }
 }

@@ -59,6 +59,8 @@ jwt:
   expiration: 7200000
 
 blog:
+  # 站点对外绝对地址：RSS / Sitemap 的 link 用它，生产由 SITE_URL 注入
+  site-url: ${SITE_URL:http://localhost}
   cache:
     view-count-flush-interval: 300000
     view-count-key: "blog:view-count"
