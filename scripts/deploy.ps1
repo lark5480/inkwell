@@ -159,11 +159,14 @@ Write-Host "`n=== 1/6 本地构建 $($Services -join ', ') ===" -ForegroundColor
 if ($LASTEXITCODE -ne 0) { throw "构建失败" }
 
 # ---------------------------------------------------------------- 2) 导出
-$images = $Services | ForEach-Object { "inkwell-$_" }
+# 必须用 @() 强制成数组：只发一个服务时 ForEach-Object 返回的是字符串，
+# 而 @ 展开字符串会按**字符**拆，docker save 会得到 "i","n","k"... → No such image: i:latest
+$images = @($Services | ForEach-Object { "inkwell-$_" })
 $tar = Join-Path $env:TEMP 'inkwell-release.tar'
 Remove-Item $tar -ErrorAction SilentlyContinue
 Write-Host "`n=== 2/6 导出镜像 ===" -ForegroundColor Cyan
 & docker save -o $tar @images
+if ($LASTEXITCODE -ne 0) { throw "docker save 失败" }
 Write-Host "  $($images -join ', ') -> $([math]::Round((Get-Item $tar).Length / 1MB, 1)) MB"
 
 # ---------------------------------------------------------------- 3) 同步配置（compose / nginx / sql）
