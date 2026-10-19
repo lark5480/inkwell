@@ -18,12 +18,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -460,5 +463,23 @@ class ArticleServiceImplTest {
         assertThat(result.page()).isEqualTo(1);
         assertThat(result.pageSize()).isEqualTo(10);
         assertThat(result.records().get(0).title()).isEqualTo("Test");
+    }
+
+    // ========== generateRss ==========
+
+    @Test
+    void generateRss_shouldFormatPubDateWithTimezone() {
+        Article article = Article.builder()
+                .id(1L).title("Test").slug("test")
+                .summary("Summary").status("PUBLISHED")
+                .publishedAt(LocalDateTime.of(2026, 4, 20, 12, 0))
+                .build();
+
+        given(articleRepository.findByStatusAndIsDeleted(eq("PUBLISHED"), eq(false), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(article)));
+
+        String rss = articleService.generateRss();
+
+        assertThat(rss).contains("<pubDate>Mon, 20 Apr 2026 12:00:00 +0800</pubDate>");
     }
 }

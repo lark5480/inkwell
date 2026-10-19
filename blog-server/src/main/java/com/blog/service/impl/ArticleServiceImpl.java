@@ -3,6 +3,7 @@ package com.blog.service.impl;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -852,7 +853,9 @@ public class ArticleServiceImpl implements ArticleService {
                 xml.append("      <description>").append(escapeXml(article.getSummary())).append("</description>\n");
             }
             if (article.getPublishedAt() != null) {
-                xml.append("      <pubDate>").append(article.getPublishedAt().format(DateTimeFormatter.RFC_1123_DATE_TIME)).append("</pubDate>\n");
+                xml.append("      <pubDate>")
+                        .append(article.getPublishedAt().atZone(ZoneId.of("Asia/Shanghai")).format(DateTimeFormatter.RFC_1123_DATE_TIME))
+                        .append("</pubDate>\n");
             }
             xml.append("    </item>\n");
         }
