@@ -37,6 +37,23 @@ if (-not (Test-Path $SshKey)) { throw "SSH 私钥不存在: $SshKey" }
 $target = "$SshUser@$Server"
 $sshArgs = @('-i', $SshKey, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=15')
 
+function Get-NormalizedSha256([string]$Path) {
+  # 仓库以 LF 存储迁移文件，Windows 检出可能是 CRLF；
+  # 直接哈希原始字节会把行尾差异误报成内容漂移，所以先归一化为 LF。
+  $bytes = [System.IO.File]::ReadAllBytes($Path)
+  $normalized = [System.Collections.Generic.List[byte]]::new($bytes.Length)
+  for ($i = 0; $i -lt $bytes.Length; $i++) {
+    if ($bytes[$i] -eq 13 -and $i + 1 -lt $bytes.Length -and $bytes[$i + 1] -eq 10) { continue }
+    $normalized.Add($bytes[$i])
+  }
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return ([System.BitConverter]::ToString($sha.ComputeHash($normalized.ToArray())) -replace '-', '').ToLower()
+  } finally {
+    $sha.Dispose()
+  }
+}
+
 function Invoke-RemoteScript([string]$Script) {
   # 注意：PowerShell 把字符串喂给原生命令的 stdin 时会写 CRLF，
   # 会让远端 heredoc 的终止符（xxx\r）匹配不上，所以远端先用 tr 去掉 \r。
@@ -62,7 +79,7 @@ $local = foreach ($f in $files) {
     Version  = $ver
     Name     = $f.Name
     Path     = $f.FullName
-    Checksum = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+    Checksum = Get-NormalizedSha256 $f.FullName
   }
 }
 

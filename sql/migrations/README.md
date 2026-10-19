@@ -41,7 +41,7 @@ SELECT * FROM schema_migrations ORDER BY version;
 |------|------|
 | `version` | 迁移版本号（文件名 `V` 前缀部分） |
 | `filename` | 文件名 |
-| `checksum` | 应用时文件的 sha256，用于发现"事后修改已应用迁移" |
+| `checksum` | 应用时文件内容（行尾归一化为 LF）的 sha256，用于发现"事后修改已应用迁移" |
 | `applied_at` | 应用时间 |
 
 ## 历史说明
